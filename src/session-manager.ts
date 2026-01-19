@@ -1,7 +1,4 @@
-/**
- * Session Manager for VTOP
- * Automatically initializes and maintains VTOP session cookies and CSRF tokens
- */
+//seperations of concerns my arse
 
 import {
   solve,
@@ -63,7 +60,6 @@ class VTOPSessionManager {
 
   //cheerio at home
   private extractCsrf(html: string): string | null {
-    // Look for _csrf token in various forms
     const patterns = [
       /name="_csrf"\s+value="([^"]+)"/,
       /name='_csrf'\s+value='([^']+)'/,
@@ -98,9 +94,6 @@ class VTOPSessionManager {
       .join("; ");
   }
 
-  /**
-   * Make a fetch request with cookie handling
-   */
   private async fetchWithCookies(
     url: string,
     options: RequestInit = {},
@@ -112,7 +105,6 @@ class VTOPSessionManager {
       headers.set("Cookie", cookieHeader);
     }
 
-    // Add common browser headers
     headers.set(
       "User-Agent",
       "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -132,17 +124,14 @@ class VTOPSessionManager {
       redirect: "manual", // Handle redirects manually to capture cookies
     });
 
-    // Store any cookies from the response
     this.storeCookies(response);
 
-    // Follow redirects manually if needed
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("Location");
       if (location) {
         const redirectUrl = location.startsWith("http")
           ? location
           : new URL(location, url).toString();
-        // Create new options without body for GET redirect
         const redirectOptions: RequestInit = {
           headers: options.headers,
           redirect: options.redirect,
@@ -153,13 +142,9 @@ class VTOPSessionManager {
 
     return response;
   }
-
-  /**
-   * Initialize VTOP session
-   */
   async initialize(): Promise<void> {
     try {
-      console.log("🔄 Initializing VTOP session...");
+      console.log("Initializing VTOP session...");
 
       // Step 1: GET / to get SERVERID cookie
       console.log("Step 1: GET / to get SERVERID...");
@@ -180,17 +165,12 @@ class VTOPSessionManager {
       const csrf = this.extractCsrf(openPageHtml);
       if (!csrf) {
         console.warn(
-          "⚠️  Warning: _csrf not found on /vtop/openPage. Continuing anyway...",
+          "⚠Warning: _csrf not found on /vtop/openPage. Continuing anyway...",
         );
       } else {
         this.state.csrf = csrf;
         console.log(` ✓ Found _csrf: ${csrf.substring(0, 20)}...`);
       }
-
-      // Optional: Visit alternate open page (used as Referer in browser)
-      await this.fetchWithCookies(OPEN_PAGE_ALT).catch(() => {
-        // Ignore errors on this optional step
-      });
 
       // Step 4: POST /vtop/prelogin/setup
       console.log("Step 4: POST /vtop/prelogin/setup (flag=VTOP)...");
@@ -210,26 +190,21 @@ class VTOPSessionManager {
         body: formData.toString(),
       });
 
-      console.log(` ✓ Prelogin status: ${preloginRes.status}`);
+      console.log(` Prelogin status: ${preloginRes.status}`);
 
-      // Mark as initialized
       this.state.initialized = true;
       this.state.lastInitialized = new Date();
 
-      console.log("✅ VTOP session initialized successfully!");
+      console.log("VTOP session initialized successfully!");
       console.log(`   Cookies stored: ${this.state.cookies.size}`);
       console.log(
         `   Cookie names: ${Array.from(this.state.cookies.keys()).join(", ")}`,
       );
     } catch (error) {
-      console.error("❌ Failed to initialize VTOP session:", error);
+      console.error("Failed to initialize VTOP session:", error);
       throw error;
     }
   }
-
-  /**
-   * Get current session state
-   */
   getState(): Readonly<SessionState> {
     return {
       ...this.state,
@@ -237,32 +212,20 @@ class VTOPSessionManager {
     };
   }
 
-  /**
-   * Get CSRF token
-   */
   getCsrf(): string | null {
     return this.state.csrf;
   }
 
-  /**
-   * Get cookies as a header string
-   */
   getCookies(): string {
     return this.getCookieHeader();
   }
 
-  /**
-   * Check if session is initialized
-   */
   isInitialized(): boolean {
     return this.state.initialized;
   }
 
-  /**
-   * Re-initialize session (useful for periodic refresh)
-   */
   async refresh(): Promise<void> {
-    console.log("🔄 Refreshing VTOP session...");
+    console.log("Refreshing VTOP session...");
     this.state.cookies.clear();
     this.state.csrf = null;
     this.state.initialized = false;
@@ -271,9 +234,6 @@ class VTOPSessionManager {
     await this.initialize();
   }
 
-  /**
-   * Detect captcha type from login page HTML using regex (no cheerio)
-   */
   private detectCaptcha(html: string): CaptchaDetectionResult {
     // reCAPTCHA signals
     const recaptchaDom =
@@ -283,13 +243,9 @@ class VTOPSessionManager {
     const recaptchaJs = html.includes("var captchaType=2");
     const isRecaptcha = recaptchaDom || recaptchaJs;
 
-    // Text CAPTCHA signals - check for captchaStr input
     const hasCaptchaInput =
       html.includes('name="captchaStr"') || html.includes('id="captchaStr"');
 
-    // Look for data URI image in the HTML
-    // Support both single and double quotes
-    // VTOP sometimes sends "null" in base64, so we need to find the first valid one
     const imgDataUriMatches = [
       ...html.matchAll(/src=["'](data:image\/[^"']+)["']/gi),
     ];
@@ -302,23 +258,16 @@ class VTOPSessionManager {
       }
     }
 
-    // specific check for the warning if we found matches but none were valid
     if (!imgDataUri && imgDataUriMatches.length > 0) {
-      console.warn("⚠️ Detected invalid captcha image (base64 is null)");
+      console.warn("Detected invalid captcha image (base64 is null)");
     }
 
     const isTextCaptcha = hasCaptchaInput && imgDataUri !== null;
 
-    // Extract CSRF token
     const csrf = this.extractCsrf(html);
 
     return { isTextCaptcha, isRecaptcha, csrf, imgDataUri };
   }
-
-  /**
-   * Login to VTOP with username, password, and registration number
-   * Polls the login page until a text CAPTCHA appears, solves it, and submits
-   */
   async login(
     username: string,
     password: string,
@@ -330,7 +279,7 @@ class VTOPSessionManager {
       await this.initialize();
     }
 
-    console.log("🔐 Starting VTOP login process...");
+    console.log("Starting VTOP login process...");
     console.log("Polling /vtop/login until text CAPTCHA appears...");
 
     let attempt = 0;
@@ -339,14 +288,12 @@ class VTOPSessionManager {
       attempt++;
 
       try {
-        // Fetch login page
         const res = await this.fetchWithCookies(LOGIN_PAGE);
         const body = await res.text();
 
         const { isTextCaptcha, isRecaptcha, csrf, imgDataUri } =
           this.detectCaptcha(body);
 
-        // Get current cookies for logging
         const curJsession = this.state.cookies.get("JSESSIONID") || "(?)";
         const curServerID = this.state.cookies.get("SERVERID") || "(?)";
 
@@ -360,26 +307,22 @@ class VTOPSessionManager {
           if (imgDataUri) {
             const parts = extractDataUriParts(imgDataUri);
             try {
-              // Trim whitespace just in case
               const cleanDataUri = imgDataUri.trim();
               if (cleanDataUri !== imgDataUri) {
-                console.log("⚠️ Trimmed whitespace from captcha data URI");
+                console.log("Trimmed whitespace from captcha data URI");
               }
 
               solvedCaptcha = await solve(cleanDataUri);
-              console.log("✅ Solved CAPTCHA:", solvedCaptcha);
+              console.log("Solved CAPTCHA:", solvedCaptcha);
 
-              // Save captcha image for debugging
               if (parts?.base64) {
                 const out = path.resolve(process.cwd(), "captcha.jpg");
                 await saveCaptchaImage(parts.base64, out);
-                //  console.log(`📷 Saved CAPTCHA image to ${out}`);
               }
             } catch (e) {
-              console.warn("⚠️ Failed to solve captcha:", e);
+              console.warn("Failed to solve captcha:", e);
               solvedCaptcha = "";
 
-              // Save the failed data URI for inspection
               try {
                 const fs = await import("fs/promises");
                 const failPath = path.resolve(
@@ -387,7 +330,7 @@ class VTOPSessionManager {
                   "failed_captcha_data.txt",
                 );
                 await fs.writeFile(failPath, imgDataUri);
-                console.log(`📝 Saved failed captcha data URI to ${failPath}`);
+                console.log(`Saved failed captcha data URI to ${failPath}`);
               } catch (writeErr) {
                 console.error("Failed to save failed captcha data:", writeErr);
               }
@@ -396,8 +339,7 @@ class VTOPSessionManager {
             console.log("Text CAPTCHA detected but no data URI image found.");
           }
 
-          // Build and submit login form
-          console.log("\n📤 Submitting POST /vtop/login ...");
+          console.log("\nSubmitting POST /vtop/login ...");
 
           const loginForm = new URLSearchParams();
           if (csrf) loginForm.set("_csrf", csrf);
@@ -435,7 +377,6 @@ class VTOPSessionManager {
 
             console.log(` -> Login POST status: ${postRes.status}`);
 
-            // Store any new cookies
             this.storeCookies(postRes);
 
             const setCookie = postRes.headers.getSetCookie?.() || [];
@@ -443,21 +384,17 @@ class VTOPSessionManager {
               console.log(" -> New cookies received");
             }
 
-            // Check for redirect
             const location = postRes.headers.get("Location");
             if (location) {
               console.log(` -> Redirect to: ${location}`);
 
-              // Follow redirect to complete the login flow
               const redirectUrl = location.startsWith("http")
                 ? location
                 : new URL(location, LOGIN_PAGE).toString();
               await this.fetchWithCookies(redirectUrl);
             }
 
-            // After successfully submitting the captcha, assume login worked
-            // The actual success will be determined when we try to fetch data
-            console.log("🎉 Login POST submitted successfully!");
+            console.log("Login POST submitted successfully!");
             this.state.loggedIn = true;
             this.state.username = username;
             this.state.regNo = regNo;
@@ -467,15 +404,12 @@ class VTOPSessionManager {
           }
         }
 
-        // If reCAPTCHA, we cannot solve it automatically
         if (isRecaptcha) {
-          console.log("⚠️ reCAPTCHA detected - cannot solve automatically");
-          // Wait a bit and retry, hoping for text captcha
+          console.log("reCAPTCHA detected - cannot solve automatically");
           await new Promise((r) => setTimeout(r, 2000));
           continue;
         }
 
-        // Wait before next poll
         await new Promise((r) => setTimeout(r, 500));
       } catch (e) {
         console.error(`Attempt ${attempt} failed:`, e);
@@ -483,31 +417,21 @@ class VTOPSessionManager {
       }
     }
 
-    console.log(`❌ Login failed after ${maxAttempts} attempts`);
+    console.log(`Login failed after ${maxAttempts} attempts`);
     return false;
   }
 
-  /**
-   * Check if logged in
-   */
   isLoggedIn(): boolean {
     return this.state.loggedIn;
   }
 
-  /**
-   * Get current username
-   */
   getUsername(): string | null {
     return this.state.username;
   }
 
-  /**
-   * Navigate through post-login pages to establish authenticated session
-   * This mimics what the browser does after successful login
-   */
   async navigatePostLogin(): Promise<boolean> {
     if (!this.state.loggedIn) {
-      console.error("❌ Cannot navigate post-login pages: not logged in");
+      console.error(" Cannot navigate post-login pages: not logged in");
       return false;
     }
 
@@ -527,8 +451,7 @@ class VTOPSessionManager {
     };
 
     try {
-      // Navigate through required pages
-      console.log("📄 Navigating post-login pages...");
+      console.log("Navigating post-login pages...");
 
       // 1. /vtop/init/page
       const initRes = await this.fetchWithCookies(INIT_PAGE, { headers });
@@ -550,26 +473,21 @@ class VTOPSessionManager {
       const newCsrf = this.extractCsrf(contentHtml);
       if (newCsrf) {
         this.state.csrf = newCsrf;
-        console.log(` ✓ Updated CSRF token from content page`);
+        console.log(`Updated CSRF token from content page`);
       }
 
-      console.log("✅ Post-login navigation complete");
+      console.log("Post-login navigation complete");
       return true;
     } catch (e) {
-      console.error("❌ Post-login navigation failed:", e);
+      console.error("Post-login navigation failed:", e);
       return false;
     }
   }
 
-  /**
-   * Parse upcoming assignments from VTOP HTML response
-   * Uses regex instead of cheerio
-   */
+  //slop
   private parseAssignmentsHtml(html: string): Assignment[] {
     const assignments: Assignment[] = [];
 
-    // VTOP returns assignments in a table or as JSON-like structure
-    // Try to parse as JSON first (some endpoints return JSON)
     try {
       const jsonMatch = html.match(/\[[\s\S]*?\]/);
       if (jsonMatch) {
@@ -636,22 +554,17 @@ class VTOPSessionManager {
     return assignments;
   }
 
-  /**
-   * Fetch upcoming assignments from VTOP
-   */
   async fetchUpcomingAssignments(): Promise<Assignment[]> {
     if (!this.state.loggedIn || !this.state.regNo) {
-      console.error("❌ Cannot fetch assignments: not logged in or no regNo");
+      console.error("Cannot fetch assignments: not logged in or no regNo");
       return [];
     }
 
-    // Ensure we've navigated post-login pages
     await this.navigatePostLogin();
 
     const cookies = this.getCookieHeader();
     const now = new Date();
 
-    // First, do the academics default check
     const accParams = new URLSearchParams();
     accParams.set("authorizedID", this.state.regNo);
     if (this.state.csrf) accParams.set("_csrf", this.state.csrf);
@@ -674,8 +587,7 @@ class VTOPSessionManager {
     };
 
     try {
-      // AcademicsDefaultCheck
-      console.log("📚 Checking academics context...");
+      console.log("acad check...");
       const accRes = await fetch(ACADEMICS_CHECK, {
         method: "POST",
         headers: apiHeaders,
@@ -683,17 +595,16 @@ class VTOPSessionManager {
       });
       console.log(` -> AcademicsDefaultCheck: ${accRes.status}`);
     } catch (e) {
-      console.warn("⚠️ AcademicsDefaultCheck failed:", e);
+      console.warn(" AcademicsDefaultCheck failed:", e);
     }
 
-    // Now fetch the assignments
     const assParams = new URLSearchParams();
     assParams.set("authorizedID", this.state.regNo);
     if (this.state.csrf) assParams.set("_csrf", this.state.csrf);
     assParams.set("x", now.toUTCString());
 
     try {
-      console.log("📝 Fetching upcoming assignments...");
+      console.log(" Fetching upcoming assignments...");
       const assRes = await fetch(UPCOMING_ASSIGNMENTS, {
         method: "POST",
         headers: apiHeaders,
@@ -707,21 +618,19 @@ class VTOPSessionManager {
 
       if (assBody) {
         const assignments = this.parseAssignmentsHtml(assBody);
-        console.log(`✅ Parsed ${assignments.length} assignments`);
+        console.log(` Parsed ${assignments.length} assignments`);
         return assignments;
       }
     } catch (e) {
-      console.error("❌ Failed to fetch assignments:", e);
+      console.error(" Failed to fetch assignments:", e);
     }
 
     return [];
   }
 }
 
-// Export singleton instance
 export const sessionManager = new VTOPSessionManager();
 
-// Auto-initialize on module load
 sessionManager.initialize().catch((error) => {
   console.error("Failed to auto-initialize session:", error);
 });

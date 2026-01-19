@@ -5,5 +5,5 @@ type SuccessMessageProps = {
 };
 
 export const SuccessMessage: FC<SuccessMessageProps> = ({ message }) => {
-  return <p class="success">✓ {message}</p>;
+  return <p class="success">{message}</p>;
 };
