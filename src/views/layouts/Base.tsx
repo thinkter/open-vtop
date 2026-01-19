@@ -1,12 +1,7 @@
 import type { FC } from "hono/jsx";
 
-type BaseLayoutProps = {
-  title?: string;
-  children?: any;
-};
-
-export const BaseLayout: FC<BaseLayoutProps> = ({
-  title = "Open-VTOP",
+export const BaseLayout: FC<{ title: string; children: any }> = ({
+  title,
   children,
 }) => {
   return (
