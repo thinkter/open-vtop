@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "hono/jsx/jsx-runtime";
-export const BaseLayout = ({ title = "HTMX + Hono", children, }) => {
+export const BaseLayout = ({ title = "Open-VTOP", children, }) => {
     return (_jsxs("html", { lang: "en", children: [_jsxs("head", { children: [_jsx("meta", { charset: "UTF-8" }), _jsx("meta", { name: "viewport", content: "width=device-width, initial-scale=1.0" }), _jsx("title", { children: title }), _jsx("script", { src: "/static/htmx.js" }), _jsx("style", { children: `
           * {
             margin: 0;

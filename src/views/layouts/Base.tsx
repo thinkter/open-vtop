@@ -6,7 +6,7 @@ type BaseLayoutProps = {
 };
 
 export const BaseLayout: FC<BaseLayoutProps> = ({
-  title = "HTMX + Hono",
+  title = "Open-VTOP",
   children,
 }) => {
   return (
