@@ -64,6 +64,82 @@ app.post("/api/login/form", async (c) => {
   }
 });
 
+// Course Details HTML Endpoint
+app.get("/api/courses/html", async (c) => {
+  if (!sessionManager.isLoggedIn()) {
+    return c.html(<div class="text-red-500">Session expired.</div>);
+  }
+
+  try {
+    const courses = await sessionManager.fetchCourseDetails();
+
+    if (courses.length === 0) {
+      return c.html(
+        <div class="p-8 text-center bg-surface border border-border rounded-lg text-muted">
+          No course details found.
+        </div>,
+      );
+    }
+
+    return c.html(
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {courses.map((course, i) => (
+          <div
+            key={i}
+            class="p-4 bg-surface border border-border rounded-lg flex flex-col justify-between"
+          >
+            <div>
+              <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-bold text-muted uppercase tracking-wider">
+                  {course.code}
+                </span>
+                <span class="text-[0.65rem] px-1.5 py-0.5 rounded border border-border text-muted">
+                  {course.type}
+                </span>
+              </div>
+              <h4 class="font-semibold text-sm mb-3 leading-snug">
+                {course.name}
+              </h4>
+            </div>
+
+            <div class="flex items-end justify-between mt-2 pt-3 border-t border-border/50">
+              <div class="flex flex-col">
+                <span class="text-[0.65rem] text-muted uppercase">
+                  Attendance
+                </span>
+                <span
+                  class={`text-lg font-bold ${
+                    course.attendanceColor === "danger"
+                      ? "text-red-500"
+                      : course.attendanceColor === "warning"
+                        ? "text-yellow-500"
+                        : "text-green-500"
+                  }`}
+                >
+                  {course.attendance}%
+                </span>
+              </div>
+              {course.remarks && (
+                <span
+                  class={`text-xs px-2 py-1 rounded bg-${course.attendanceColor === "danger" ? "red" : "green"}-500/10 text-${course.attendanceColor === "danger" ? "red" : "green"}-500`}
+                >
+                  {course.remarks}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>,
+    );
+  } catch (error) {
+    return c.html(
+      <div class="p-4 border border-red-500 rounded-md text-red-500">
+        Failed to load courses: {String(error)}
+      </div>,
+    );
+  }
+});
+
 app.get("/api/assignments/html", async (c) => {
   if (!sessionManager.isLoggedIn()) {
     // If session expired, redirect/render login
@@ -85,7 +161,7 @@ app.get("/api/assignments/html", async (c) => {
         </div>,
       );
     }
-    //ass
+
     return c.html(
       <div class="flex flex-col gap-3">
         {assignments.map((ass, i) => (

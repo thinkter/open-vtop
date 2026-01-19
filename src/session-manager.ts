@@ -20,6 +20,7 @@ const VTOP_OPEN = `${BASE}/vtop/open`;
 const CONTENT = `${BASE}/vtop/content`;
 const ACADEMICS_CHECK = `${BASE}/vtop/academics/common/AcademicsDefaultCheck`;
 const UPCOMING_ASSIGNMENTS = `${BASE}/vtop/get/upcoming/digital/assignments`;
+const COURSE_DETAILS = `${BASE}/vtop/get/dashboard/current/semester/course/details`;
 
 export interface Assignment {
   courseCode: string;
@@ -28,6 +29,15 @@ export interface Assignment {
   dueDate: string;
   status: string;
   maxMarks: string;
+}
+
+export interface CourseDetail {
+  code: string;
+  name: string;
+  type: string;
+  attendance: string;
+  attendanceColor: string;
+  remarks: string;
 }
 
 interface SessionState {
@@ -554,6 +564,122 @@ class VTOPSessionManager {
     return assignments;
   }
 
+  private parseCourseDetailsHtml(html: string): CourseDetail[] {
+    const courses: CourseDetail[] = [];
+
+    // Regex to match table rows
+    const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
+    const matches = [...html.matchAll(rowRegex)];
+
+    // Skip header row
+    for (let i = 1; i < matches.length; i++) {
+      const rowContent = matches[i][1];
+
+      // Extract Code and Name: <span class="mx-2 text-dark fw-bold">BCSE204L</span>-<span class="mx-2 text-dark">Design and Analysis of Algorithms</span>
+      const codeMatch = rowContent.match(
+        /<span[^>]*text-dark fw-bold[^>]*>([^<]+)<\/span>/,
+      );
+      const nameMatch = rowContent.match(
+        /-[\s\n]*<span[^>]*text-dark[^>]*>([^<]+)<\/span>/,
+      );
+
+      // Extract Type: <td class="fst-italic text-primary fw-bold mx-1">TH</td>
+      const typeMatch = rowContent.match(
+        /<td[^>]*fst-italic[^>]*>([^<]+)<\/td>/,
+      );
+
+      // Extract Attendance: <span class="text-danger fw-bold">65.0</span>
+      // Capture color class as well to determine status
+      const attendanceMatch = rowContent.match(
+        /<span class="text-([a-z]+)[^>]*fw-bold">([\d.]+)<\/span>/,
+      );
+
+      // Extract Remarks: <span class="text-danger fw-bold">Critical - must improve</span>
+      // This usually comes after attendance in the last column
+      const remarksMatch =
+        rowContent.match(
+          /<span class="text-[^>]*>([^<]+)<\/span>[\s\n]*<\/td>[\s\n]*<\/tr>$/,
+        ) ||
+        rowContent.match(
+          /<td[^>]*text-nowrap text-start[^>]*>[\s\S]*?<span[^>]*>([^<]+)<\/span>/,
+        );
+
+      if (codeMatch && nameMatch) {
+        courses.push({
+          code: codeMatch[1].trim(),
+          name: nameMatch[1].trim(),
+          type: typeMatch ? typeMatch[1].trim() : "N/A",
+          attendance: attendanceMatch ? attendanceMatch[2].trim() : "N/A",
+          attendanceColor: attendanceMatch
+            ? attendanceMatch[1].trim()
+            : "secondary",
+          remarks: remarksMatch ? remarksMatch[1].trim() : "",
+        });
+      }
+    }
+
+    return courses;
+  }
+
+  private async performAcademicsCheck(headers: any): Promise<void> {
+    const now = new Date();
+    const accParams = new URLSearchParams();
+    accParams.set("authorizedID", this.state.regNo!);
+    if (this.state.csrf) accParams.set("_csrf", this.state.csrf);
+    accParams.set("x", now.toUTCString());
+
+    try {
+      console.log("Performing AcademicsDefaultCheck...");
+      const accRes = await fetch(ACADEMICS_CHECK, {
+        method: "POST",
+        headers,
+        body: accParams.toString(),
+      });
+      console.log(` -> AcademicsDefaultCheck: ${accRes.status}`);
+    } catch (e) {
+      console.warn("AcademicsDefaultCheck failed:", e);
+    }
+  }
+
+  async fetchCourseDetails(): Promise<CourseDetail[]> {
+    if (!this.state.loggedIn || !this.state.regNo) {
+      console.error("Cannot fetch course details: not logged in");
+      return [];
+    }
+
+    const headers = {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "X-Requested-With": "XMLHttpRequest",
+      Referer: MAIN_PAGE,
+      Cookie: this.getCookieHeader(),
+      "User-Agent":
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    };
+
+    const params = new URLSearchParams();
+    params.set("verifyMenu", "true");
+    if (this.state.csrf) params.set("_csrf", this.state.csrf);
+
+    try {
+      console.log("Fetching course details...");
+      const res = await fetch(COURSE_DETAILS, {
+        method: "POST",
+        headers,
+        body: params,
+      });
+
+      const html = await res.text();
+      console.log("Course details HTML:", html);
+
+      const courses = this.parseCourseDetailsHtml(html);
+      console.log(`Parsed ${courses.length} courses`);
+      return courses;
+    } catch (error) {
+      console.error("Failed to fetch course details:", error);
+      return [];
+    }
+  }
+
   async fetchUpcomingAssignments(): Promise<Assignment[]> {
     if (!this.state.loggedIn || !this.state.regNo) {
       console.error("Cannot fetch assignments: not logged in or no regNo");
@@ -586,17 +712,7 @@ class VTOPSessionManager {
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
     };
 
-    try {
-      console.log("acad check...");
-      const accRes = await fetch(ACADEMICS_CHECK, {
-        method: "POST",
-        headers: apiHeaders,
-        body: accParams.toString(),
-      });
-      console.log(` -> AcademicsDefaultCheck: ${accRes.status}`);
-    } catch (e) {
-      console.warn(" AcademicsDefaultCheck failed:", e);
-    }
+    await this.performAcademicsCheck(apiHeaders);
 
     const assParams = new URLSearchParams();
     assParams.set("authorizedID", this.state.regNo);

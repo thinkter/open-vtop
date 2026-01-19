@@ -14,9 +14,9 @@ An open-source VTOP client with automatic session management.
 9) qol like automatic browser open, better logging, save usn password for faster logins, logout
 ## Features
 
-- 🚀 **Automatic Session Initialization**: VTOP session cookies and CSRF tokens are automatically established when the server starts
-- 🔄 **Background Processing**: Session setup happens in the background, no need to hit any endpoints first
-- 📊 **Session Monitoring**: Check session status in real-time via the web interface
+- **Automatic Session Initialization**: VTOP session cookies and CSRF tokens are automatically established when the server starts
+- **Background Processing**: Session setup happens in the background, no need to hit any endpoints first
+- **Session Monitoring**: Check session status in real-time via the web interface
 
 ## Getting Started
 
