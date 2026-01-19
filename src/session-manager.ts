@@ -603,9 +603,11 @@ class VTOPSessionManager {
     }
 
     // Parse HTML table rows using regex
-    // Look for table rows with assignment data
+    // VTOP table structure: #(th), Course Name(td), Title(td), Last Date(td), Uploaded(td)
+    // Note: VTOP HTML sometimes has malformed tags like <<td
     const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    // Match both <th> and <td> cells, and handle malformed <<td
+    const cellRegex = /<?<t[hd][^>]*>([\s\S]*?)(?:<\/t[hd]>|<\/tr|<tr|$)/gi;
 
     let rowMatch;
     while ((rowMatch = rowRegex.exec(html)) !== null) {
@@ -621,15 +623,21 @@ class VTOPSessionManager {
         cells.push(cellContent);
       }
 
-      // Assume table structure: CourseCode, CourseName, Title, DueDate, Status, MaxMarks
-      if (cells.length >= 4) {
+      // Skip header rows (first cell would be "#" or similar header text)
+      if (cells.length >= 4 && cells[0] !== "#" && !isNaN(Number(cells[0]))) {
+        // Table structure: # (row num), Course Name, Title, Last Date, Uploaded
+        // cells[0] = row number (skip)
+        // cells[1] = Course Name
+        // cells[2] = Title (assignment title)
+        // cells[3] = Last Date (due date)
+        // cells[4] = Uploaded (status)
         assignments.push({
-          courseCode: cells[0] || "",
+          courseCode: "", // Not in this table format
           courseName: cells[1] || "",
           assignmentTitle: cells[2] || "",
           dueDate: cells[3] || "",
-          status: cells[4] || "",
-          maxMarks: cells[5] || "",
+          status: cells[4] || "Pending",
+          maxMarks: "", // Not in this table format
         });
       }
     }
