@@ -17,7 +17,6 @@ const OPEN_PAGE_ALT = `${BASE}/vtop/open/page`;
 const PRELOGIN_SETUP = `${BASE}/vtop/prelogin/setup`;
 const LOGIN_PAGE = `${BASE}/vtop/login`;
 
-// Post-login endpoints
 const INIT_PAGE = `${BASE}/vtop/init/page`;
 const MAIN_PAGE = `${BASE}/vtop/main/page`;
 const VTOP_OPEN = `${BASE}/vtop/open`;
@@ -62,9 +61,7 @@ class VTOPSessionManager {
     regNo: null,
   };
 
-  /**
-   * Extract CSRF token from HTML response
-   */
+  //cheerio at home
   private extractCsrf(html: string): string | null {
     // Look for _csrf token in various forms
     const patterns = [
@@ -83,9 +80,6 @@ class VTOPSessionManager {
     return null;
   }
 
-  /**
-   * Parse Set-Cookie headers and store cookies
-   */
   private storeCookies(response: Response): void {
     const setCookieHeaders = response.headers.getSetCookie?.() || [];
 
@@ -98,9 +92,6 @@ class VTOPSessionManager {
     }
   }
 
-  /**
-   * Get cookie header string for requests
-   */
   private getCookieHeader(): string {
     return Array.from(this.state.cookies.entries())
       .map(([name, value]) => `${name}=${value}`)

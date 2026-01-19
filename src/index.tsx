@@ -11,10 +11,8 @@ const app = new Hono();
 const require = createRequire(import.meta.url);
 const htmxPath = require.resolve("htmx.org/dist/htmx.min.js");
 
-// Serve htmx
 app.use("/static/htmx.js", serveStatic({ path: htmxPath }));
 
-// Main Entry Point
 app.get("/", (c) => {
   if (sessionManager.isLoggedIn()) {
     return c.html(<Dashboard username={sessionManager.getUsername()!} />);
@@ -22,7 +20,6 @@ app.get("/", (c) => {
   return c.html(<Login />);
 });
 
-// Login Form Handling
 app.post("/api/login/form", async (c) => {
   try {
     const formData = await c.req.parseBody();
@@ -44,7 +41,6 @@ app.post("/api/login/form", async (c) => {
     const success = await sessionManager.login(username, password, regNo);
 
     if (success) {
-      // Return the Dashboard HTML to replace the entire body
       return c.html(<Dashboard username={username} />);
     } else {
       return c.html(
@@ -68,7 +64,6 @@ app.post("/api/login/form", async (c) => {
   }
 });
 
-// Assignments HTML Endpoint (for Dashboard)
 app.get("/api/assignments/html", async (c) => {
   if (!sessionManager.isLoggedIn()) {
     // If session expired, redirect/render login
@@ -85,13 +80,12 @@ app.get("/api/assignments/html", async (c) => {
     if (assignments.length === 0) {
       return c.html(
         <div class="p-12 text-center bg-surface border border-border rounded-lg">
-          <div class="text-4xl mb-4 opacity-50">🎉</div>
           <h3 class="text-lg font-medium mb-2">No Upcoming Assignments</h3>
           <p class="text-muted">You are all caught up!</p>
         </div>,
       );
     }
-
+    //ass
     return c.html(
       <div class="flex flex-col gap-3">
         {assignments.map((ass, i) => (
@@ -150,6 +144,6 @@ serve(
     port: 6767,
   },
   (info) => {
-    console.log(`🚀 Server is running on http://localhost:${info.port}`);
+    console.log(`Server is running on http://localhost:${info.port}`);
   },
 );
