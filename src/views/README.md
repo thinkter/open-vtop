@@ -7,34 +7,40 @@ This directory contains all the JSX templates for the application.
 ```
 views/
 ├── layouts/         # Layout templates
-│   └── Base.tsx     # Main HTML layout with head, body, styles
-├── components/      # Reusable components
-│   ├── Container.tsx  # Section container wrapper
-│   └── Item.tsx       # Item component with delete action
-├── partials.tsx     # Small partial templates for API responses
+│   └── Base.tsx     # Main HTML layout with Vercel-style dark theme
+├── partials.tsx     # Small partial templates for HTMX responses
 └── Home.tsx         # Main home page
 ```
+
+## Design System
+
+The project uses a **Vercel-inspired dark theme**:
+- Full black background (#000)
+- Monospace font stack (SF Mono, Monaco, etc.)
+- Minimal, clean UI with subtle borders
+- White text on black background
+- Smooth transitions and hover effects
 
 ## Usage
 
 ### Creating a New Page
 
 1. Create a new file in `views/`, e.g., `About.tsx`
-2. Import the `BaseLayout` and any components you need
+2. Import the `BaseLayout`
 3. Export your component as a named export
 
 ```tsx
 import type { FC } from "hono/jsx";
 import { BaseLayout } from "./layouts/Base.js";
-import { Container } from "./components/Container.js";
 
 export const About: FC = () => {
   return (
-    <BaseLayout title="About Us">
+    <BaseLayout title="About">
       <h1>About Page</h1>
-      <Container title="Our Story">
+      <div class="section">
+        <h2>Our Story</h2>
         <p>Content goes here...</p>
-      </Container>
+      </div>
     </BaseLayout>
   );
 };
@@ -56,30 +62,15 @@ Partials are small components used for HTMX responses. Add them to `partials.tsx
 
 ```tsx
 export const MyPartial: FC<{ data: string }> = ({ data }) => {
-  return <div class="my-class">{data}</div>;
+  return <div>{data}</div>;
 };
 ```
 
-### Creating Components
-
-Reusable components go in `components/`:
-
+Use in routes:
 ```tsx
-import type { FC } from "hono/jsx";
-
-type MyComponentProps = {
-  title: string;
-  children?: any;
-};
-
-export const MyComponent: FC<MyComponentProps> = ({ title, children }) => {
-  return (
-    <div class="my-component">
-      <h3>{title}</h3>
-      {children}
-    </div>
-  );
-};
+app.get("/api/data", (c) => {
+  return c.html(<MyPartial data="Hello!" />);
+});
 ```
 
 ## Important Notes
@@ -88,6 +79,13 @@ export const MyComponent: FC<MyComponentProps> = ({ title, children }) => {
 - Use `type { FC } from "hono/jsx"` for component types
 - Use `class` instead of `className` for CSS classes (Hono JSX uses HTML attribute names)
 - HTMX attributes work directly: `hx-get`, `hx-post`, `hx-target`, etc.
+
+## CSS Classes
+
+Available utility classes from Base layout:
+- `.section` - Card-like container with dark background and border
+- `.success` - Green success text color
+- `.error` - Red error text color
 
 ## HTMX Integration
 

@@ -5,7 +5,10 @@ type BaseLayoutProps = {
   children?: any;
 };
 
-export const BaseLayout: FC<BaseLayoutProps> = ({ title = "HTMX + Hono", children }) => {
+export const BaseLayout: FC<BaseLayoutProps> = ({
+  title = "HTMX + Hono",
+  children,
+}) => {
   return (
     <html lang="en">
       <head>
@@ -14,67 +17,126 @@ export const BaseLayout: FC<BaseLayoutProps> = ({ title = "HTMX + Hono", childre
         <title>{title}</title>
         <script src="/static/htmx.js"></script>
         <style>{`
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+
           body {
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Dank Mono', 'Source Code Pro', monospace;
+            background: #000;
+            color: #fff;
+            min-height: 100vh;
+            padding: 2rem;
+            line-height: 1.6;
+          }
+
+          h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            letter-spacing: -0.02em;
+          }
+
+          h2 {
+            font-size: 1.25rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            letter-spacing: -0.01em;
+          }
+
+          .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 2rem;
-            background: #f5f5f5;
           }
-          .container {
-            background: white;
-            padding: 2rem;
+
+          .section {
+            background: #111;
+            border: 1px solid #333;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 2rem;
             margin-bottom: 2rem;
+            transition: border-color 0.2s ease;
           }
+
+          .section:hover {
+            border-color: #555;
+          }
+
           button {
-            background: #3b82f6;
-            color: white;
+            background: #fff;
+            color: #000;
             border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            font-weight: 500;
+            transition: all 0.2s ease;
           }
+
           button:hover {
-            background: #2563eb;
+            background: #e6e6e6;
+            transform: translateY(-1px);
           }
-          button.danger {
-            background: #ef4444;
+
+          button:active {
+            transform: translateY(0);
           }
-          button.danger:hover {
-            background: #dc2626;
-          }
+
           input {
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1rem;
+            background: #111;
+            color: #fff;
+            border: 1px solid #333;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-family: inherit;
+            width: 100%;
+            transition: border-color 0.2s ease;
           }
-          .success { color: #10b981; }
-          .error { color: #ef4444; }
-          .loading { opacity: 0.6; }
-          .htmx-swapping { opacity: 0.5; transition: opacity 0.2s; }
-          .item {
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            margin: 0.5rem 0;
-            border-radius: 4px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+
+          input:focus {
+            outline: none;
+            border-color: #fff;
           }
-          .content-item {
-            padding: 0.5rem;
-            background: #f0f9ff;
-            margin: 0.5rem 0;
-            border-radius: 4px;
+
+          input::placeholder {
+            color: #666;
+          }
+
+          #result {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #0a0a0a;
+            border: 1px solid #222;
+            border-radius: 6px;
+            min-height: 2rem;
+            font-size: 0.875rem;
+          }
+
+          .success {
+            color: #0f0;
+          }
+
+          .error {
+            color: #f00;
+          }
+
+          .htmx-swapping {
+            opacity: 0.5;
+            transition: opacity 0.2s;
+          }
+
+          .htmx-request {
+            opacity: 0.8;
           }
         `}</style>
       </head>
       <body>
-        {children}
+        <div class="container">{children}</div>
       </body>
     </html>
   );
