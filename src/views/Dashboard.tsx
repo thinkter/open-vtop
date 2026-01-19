@@ -4,10 +4,10 @@ import { BaseLayout } from "./layouts/Base.js";
 export const Dashboard: FC<{ username: string }> = ({ username }) => {
   return (
     <BaseLayout title="Dashboard - Open-VTOP">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+      <div class="flex justify-between items-center mb-8">
         <div>
-          <h1>Dashboard</h1>
-          <p style="color: var(--fg-secondary);">Welcome back, {username}</p>
+          <h1 class="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p class="text-muted text-sm">Welcome back, {username}</p>
         </div>
         <div>{/* Todo: Logout logic */}</div>
       </div>
@@ -17,17 +17,12 @@ export const Dashboard: FC<{ username: string }> = ({ username }) => {
         hx-trigger="load"
         hx-target="#assignments-container"
         hx-swap="innerHTML"
+        class="w-full"
       >
-        <div id="assignments-container">
-          <div
-            id="loading-state"
-            style="text-align: center; padding: 4rem; color: var(--fg-secondary);"
-          >
-            <div
-              class="spinner"
-              style="width: 24px; height: 24px; margin-bottom: 1rem;"
-            ></div>
-            <p>Syncing assignments...</p>
+        <div id="assignments-container" class="space-y-4">
+          <div id="loading-state" class="text-center py-16 text-muted">
+            <div class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-muted border-t-white mb-4"></div>
+            <p class="text-sm">Syncing assignments...</p>
           </div>
         </div>
       </div>

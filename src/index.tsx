@@ -34,7 +34,7 @@ app.post("/api/login/form", async (c) => {
       return c.html(
         <div
           id="error-message"
-          style="margin-top: 1rem; padding: 0.75rem; background: rgba(255, 68, 68, 0.1); border: 1px solid var(--error); border-radius: var(--radius); color: var(--error); font-size: 0.9rem;"
+          class="mt-4 p-3 bg-red-500/10 border border-red-500/50 rounded-md text-red-500 text-sm"
         >
           Missing credentials. Please try again.
         </div>,
@@ -50,7 +50,7 @@ app.post("/api/login/form", async (c) => {
       return c.html(
         <div
           id="error-message"
-          style="margin-top: 1rem; padding: 0.75rem; background: rgba(255, 68, 68, 0.1); border: 1px solid var(--error); border-radius: var(--radius); color: var(--error); font-size: 0.9rem;"
+          class="mt-4 p-3 bg-red-500/10 border border-red-500/50 rounded-md text-red-500 text-sm"
         >
           Login failed. Invalid credentials or captcha error.
         </div>,
@@ -60,7 +60,7 @@ app.post("/api/login/form", async (c) => {
     return c.html(
       <div
         id="error-message"
-        style="margin-top: 1rem; padding: 0.75rem; background: rgba(255, 68, 68, 0.1); border: 1px solid var(--error); border-radius: var(--radius); color: var(--error); font-size: 0.9rem;"
+        class="mt-4 p-3 bg-red-500/10 border border-red-500/50 rounded-md text-red-500 text-sm"
       >
         Server error: {String(error)}
       </div>,
@@ -73,7 +73,7 @@ app.get("/api/assignments/html", async (c) => {
   if (!sessionManager.isLoggedIn()) {
     // If session expired, redirect/render login
     return c.html(
-      <div style="color: var(--error);">
+      <div class="text-red-500">
         Session expired. Please refresh to log in again.
       </div>,
     );
@@ -84,57 +84,50 @@ app.get("/api/assignments/html", async (c) => {
 
     if (assignments.length === 0) {
       return c.html(
-        <div style="padding: 3rem; text-align: center; background: var(--bg-secondary); border-radius: var(--radius); border: 1px solid var(--border);">
-          <div style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;">
-            🎉
-          </div>
-          <h3 style="margin-bottom: 0.5rem;">No Upcoming Assignments</h3>
-          <p style="color: var(--fg-secondary);">You are all caught up!</p>
+        <div class="p-12 text-center bg-surface border border-border rounded-lg">
+          <div class="text-4xl mb-4 opacity-50">🎉</div>
+          <h3 class="text-lg font-medium mb-2">No Upcoming Assignments</h3>
+          <p class="text-muted">You are all caught up!</p>
         </div>,
       );
     }
 
     return c.html(
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+      <div class="flex flex-col gap-3">
         {assignments.map((ass, i) => (
           <div
             key={i}
-            class="card"
-            style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; transition: background 0.2s;"
+            class="flex items-center justify-between p-4 bg-surface border border-border rounded-lg transition-colors hover:border-muted group"
           >
-            <div style="flex: 1; min-width: 0; padding-right: 1rem;">
-              <div style="display: flex; align-items: baseline; gap: 0.75rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
-                <span style="font-size: 0.8rem; font-weight: 600; color: var(--fg-secondary); min-width: fit-content;">
+            <div class="flex-1 min-w-0 pr-4">
+              <div class="flex items-baseline gap-3 overflow-hidden whitespace-nowrap text-ellipsis">
+                <span class="text-xs font-bold text-muted uppercase tracking-wider min-w-fit">
                   {ass.courseCode}
                 </span>
-                <span style="font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis;">
+                <span class="font-semibold text-sm truncate">
                   {ass.assignmentTitle}
                 </span>
-                <span style="font-size: 0.85rem; color: var(--fg-secondary);">
-                  — {ass.courseName}
-                </span>
+                <span class="text-xs text-muted">— {ass.courseName}</span>
               </div>
 
-              <div style="display: flex; gap: 1rem; margin-top: 0.25rem; font-size: 0.8rem; color: var(--fg-secondary);">
-                <span>Due: {ass.dueDate || "N/A"}</span>
-                <span>Max: {ass.maxMarks || "N/A"}</span>
+              <div class="flex gap-4 mt-1 text-xs text-muted">
+                <span>
+                  Due:{" "}
+                  <span class="text-foreground">{ass.dueDate || "N/A"}</span>
+                </span>
+                <span>
+                  Max:{" "}
+                  <span class="text-foreground">{ass.maxMarks || "N/A"}</span>
+                </span>
               </div>
             </div>
 
             <span
-              style={{
-                fontSize: "0.75rem",
-                padding: "0.25rem 0.75rem",
-                borderRadius: "6px",
-                background: ass.status?.toLowerCase().includes("pending")
-                  ? "rgba(255, 68, 68, 0.1)"
-                  : "rgba(0, 112, 243, 0.1)",
-                color: ass.status?.toLowerCase().includes("pending")
-                  ? "var(--error)"
-                  : "var(--success)",
-                fontWeight: "500",
-                whiteSpace: "nowrap",
-              }}
+              class={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
+                ass.status?.toLowerCase().includes("pending")
+                  ? "bg-red-500/10 text-red-500 border border-red-500/20"
+                  : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+              }`}
             >
               {ass.status || "Pending"}
             </span>
@@ -144,7 +137,7 @@ app.get("/api/assignments/html", async (c) => {
     );
   } catch (error) {
     return c.html(
-      <div style="padding: 1rem; border: 1px solid var(--error); border-radius: var(--radius); color: var(--error);">
+      <div class="p-4 border border-red-500 rounded-md text-red-500">
         Failed to load assignments: {String(error)}
       </div>,
     );

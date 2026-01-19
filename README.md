@@ -2,6 +2,16 @@
 
 An open-source VTOP client with automatic session management.
 
+## Todo
+1) save usn and password for future use
+2) grab regno from the responses it self
+3) attendance
+4) timetable
+5) cgpa
+6) course-page
+7) callendar
+8) many more...
+9) qol like automatic browser open, better logging, save usn password for faster logins, logout
 ## Features
 
 - 🚀 **Automatic Session Initialization**: VTOP session cookies and CSRF tokens are automatically established when the server starts
