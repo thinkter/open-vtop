@@ -5,27 +5,14 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Home } from "./views/Home.js";
 import { SuccessMessage } from "./views/partials.js";
 import { sessionManager } from "./session-manager.js";
-import { readFile } from "fs/promises";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
 
 const app = new Hono();
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Serve htmx from node_modules - resolve absolute path
-const htmxPath = join(__dirname, "../node_modules/htmx.org/dist/htmx.min.js");
-
-app.get("/static/htmx.js", async (c) => {
-  try {
-    const content = await readFile(htmxPath);
-    return c.body(content, 200, {
-      "Content-Type": "application/javascript",
-    });
-  } catch (e) {
-    console.error("Failed to serve HTMX:", e);
-    return c.text("Failed to load HTMX", 500);
-  }
-});
+// Serve htmx from node_modules
+app.use(
+  "/static/htmx.js",
+  serveStatic({ path: "./node_modules/htmx.org/dist/htmx.min.js" }),
+);
 
 // Main page
 app.get("/", (c) => {
@@ -45,10 +32,9 @@ app.get("/api/session/status", (c) => {
     ? new Date(state.lastInitialized).toLocaleString()
     : "Never";
 
-  // Redact sensitive values for security
-  const hasCsrf = !!state.csrf;
-  const hasJsession = state.cookies.has("JSESSIONID");
-  const hasServerId = state.cookies.has("SERVERID");
+  const csrfToken = state.csrf || "None";
+  const jsessionid = state.cookies.get("JSESSIONID") || "None";
+  const serverid = state.cookies.get("SERVERID") || "None";
 
   return c.html(
     <div style="font-family: monospace; padding: 1rem; background: #f5f5f5; border-radius: 4px; color: #000;">
@@ -62,13 +48,13 @@ app.get("/api/session/status", (c) => {
         <strong>Total Cookies:</strong> {state.cookies.size}
       </div>
       <div style="margin-bottom: 0.5rem;">
-        <strong>CSRF Token:</strong> {hasCsrf ? "✅ Present" : "❌ Missing"}
+        <strong>CSRF Token:</strong> {csrfToken}
       </div>
       <div style="margin-bottom: 0.5rem;">
-        <strong>JSESSIONID:</strong> {hasJsession ? "✅ Present" : "❌ Missing"}
+        <strong>JSESSIONID:</strong> {jsessionid}
       </div>
       <div>
-        <strong>SERVERID:</strong> {hasServerId ? "✅ Present" : "❌ Missing"}
+        <strong>SERVERID:</strong> {serverid}
       </div>
     </div>,
   );
@@ -160,16 +146,13 @@ app.get("/api/login/status/html", (c) => {
 const debugLogs: { timestamp: string; level: string; message: string }[] = [];
 
 function addDebugLog(level: string, message: string) {
-  // Only log if specifically enabled
-  if (process.env.DEBUG_LOGS === "true") {
-    const timestamp = new Date().toLocaleTimeString();
-    debugLogs.push({ timestamp, level, message });
-    // Keep only last 100 logs
-    if (debugLogs.length > 100) {
-      debugLogs.shift();
-    }
-    console.log(`[${level}] ${message}`);
+  const timestamp = new Date().toLocaleTimeString();
+  debugLogs.push({ timestamp, level, message });
+  // Keep only last 100 logs
+  if (debugLogs.length > 100) {
+    debugLogs.shift();
   }
+  console.log(`[${level}] ${message}`);
 }
 
 // Form-based login endpoint (for HTMX)
@@ -190,8 +173,7 @@ app.post("/api/login/form", async (c) => {
       );
     }
 
-    // Don't log credentials even in debug
-    addDebugLog("INFO", "Login requested");
+    addDebugLog("INFO", `Login requested for user: ${username} (${regNo})`);
 
     // Show that login is in progress
     const startTime = Date.now();
@@ -201,7 +183,10 @@ app.post("/api/login/form", async (c) => {
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
     if (success) {
-      addDebugLog("SUCCESS", `Login successful (took ${duration}s)`);
+      addDebugLog(
+        "SUCCESS",
+        `Login successful for ${username} (took ${duration}s)`,
+      );
       return c.html(
         <div style="padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;">
           <strong>🎉 Login Successful!</strong>
@@ -214,7 +199,7 @@ app.post("/api/login/form", async (c) => {
         </div>,
       );
     } else {
-      addDebugLog("ERROR", `Login failed (took ${duration}s)`);
+      addDebugLog("ERROR", `Login failed for ${username} (took ${duration}s)`);
       return c.html(
         <div style="padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
           <strong>❌ Login Failed</strong>
@@ -240,14 +225,6 @@ app.post("/api/login/form", async (c) => {
 
 // Debug logs endpoint
 app.get("/api/debug/logs", (c) => {
-  if (process.env.DEBUG_LOGS !== "true") {
-    return c.html(
-      <div style="color: #888;">
-        Debug logs are disabled. Set DEBUG_LOGS=true to enable.
-      </div>,
-    );
-  }
-
   if (debugLogs.length === 0) {
     return c.html(
       <div style="color: #888;">
@@ -390,12 +367,10 @@ app.get("/api/assignments/html", async (c) => {
   }
 });
 
-const port = Number(process.env.PORT) || 6767;
-
 serve(
   {
     fetch: app.fetch,
-    port,
+    port: 6767,
   },
   (info) => {
     console.log(`🚀 Server is running on http://localhost:${info.port}`);

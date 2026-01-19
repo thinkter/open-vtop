@@ -16,14 +16,12 @@
     "open-vtop": "dist/index.js"
   },
   "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
+    "dist"
   ],
   "devDependencies": {
     "@types/node": "^20.11.17",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3"
   },
-  "version": "1.0.3"
+  "version": "1.0.0"
 }
