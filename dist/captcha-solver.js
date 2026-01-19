@@ -1,8 +1,9 @@
 /**
  * CAPTCHA Solver for VTOP
- * Uses canvas for image processing and bitmap matching / neural network for character recognition
+ * Uses pure JS for image processing and bitmap matching / neural network for character recognition
  */
-import { createCanvas, loadImage } from "canvas";
+import * as jpeg from "jpeg-js";
+import { PNG } from "pngjs";
 import { bitmaps } from "./bitmaps.js";
 // ============ Bitmap-based solver (original method) ============
 function captchaParse(imgarr) {
@@ -134,6 +135,53 @@ function maxSoft(a) {
     }
     return n;
 }
+async function decodeImage(dataUri) {
+    const parts = extractDataUriParts(dataUri);
+    if (!parts)
+        throw new Error("Invalid Data URI");
+    const buffer = Buffer.from(parts.base64, "base64");
+    if (parts.mimeType === "image/png") {
+        return new Promise((resolve, reject) => {
+            const png = new PNG();
+            png.parse(buffer, (err, data) => {
+                if (err)
+                    reject(err);
+                else
+                    resolve({
+                        width: data.width,
+                        height: data.height,
+                        data: data.data,
+                    });
+            });
+        });
+    }
+    else if (parts.mimeType === "image/jpeg") {
+        const decoded = jpeg.decode(buffer, { useTArray: true });
+        return {
+            width: decoded.width,
+            height: decoded.height,
+            data: decoded.data,
+        };
+    }
+    throw new Error("Unsupported image type: " + parts.mimeType);
+}
+function resizeImage(src, targetW, targetH) {
+    // Nearest neighbor resize
+    const target = new Uint8ClampedArray(targetW * targetH * 4);
+    for (let y = 0; y < targetH; y++) {
+        for (let x = 0; x < targetW; x++) {
+            const srcX = Math.floor((x * src.width) / targetW);
+            const srcY = Math.floor((y * src.height) / targetH);
+            const srcIdx = (srcY * src.width + srcX) * 4;
+            const targetIdx = (y * targetW + x) * 4;
+            target[targetIdx] = src.data[srcIdx];
+            target[targetIdx + 1] = src.data[srcIdx + 1];
+            target[targetIdx + 2] = src.data[srcIdx + 2];
+            target[targetIdx + 3] = src.data[srcIdx + 3];
+        }
+    }
+    return target;
+}
 /**
  * Solve a CAPTCHA image using the saturation-based neural network method
  * @param imgDataUri - Base64 data URI of the captcha image
@@ -147,12 +195,15 @@ export async function solve(imgDataUri) {
         return solveBitmap(imgDataUri);
     }
     const labelTxt = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const canvas = createCanvas(200, 40);
-    const ctx = canvas.getContext("2d");
-    const image = await loadImage(imgDataUri);
-    ctx.drawImage(image, 0, 0, 200, 40);
-    const pd = ctx.getImageData(0, 0, 200, 40);
-    let bls = saturation(pd.data);
+    const img = await decodeImage(imgDataUri);
+    // Target size: 200x40
+    let dataToUse = img.data;
+    if (img.width !== 200 || img.height !== 40) {
+        dataToUse = resizeImage(img, 200, 40);
+    }
+    // dataToUse is now RGBA array of 200x40 image
+    // saturation expects Uint8ClampedArray or similar
+    let bls = saturation(dataToUse);
     let out = "";
     for (let i = 0; i < 6; i++) {
         let block = preImg(bls[i]);
@@ -171,16 +222,17 @@ export async function solve(imgDataUri) {
  * @returns Solved captcha string
  */
 export async function solveBitmap(imgDataUri) {
-    const canvas = createCanvas(180, 45);
-    const ctx = canvas.getContext("2d");
-    const image = await loadImage(imgDataUri);
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
+    const img = await decodeImage(imgDataUri);
+    // For bitmap solver, we need 180x45
+    // Original code: canvas 180x45, drawImage(image, 0, 0, 180, 45)
+    // So we definitely need to resize
+    const resizedData = resizeImage(img, 180, 45);
     // Convert to grayscale 2D array
     const arr = [];
-    for (let i = 0; i < data.length; i += 4) {
-        const gval = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    for (let i = 0; i < resizedData.length; i += 4) {
+        const gval = resizedData[i] * 0.299 +
+            resizedData[i + 1] * 0.587 +
+            resizedData[i + 2] * 0.114;
         arr.push(Math.round(gval));
     }
     const newArr = [];

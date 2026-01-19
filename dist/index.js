@@ -7,8 +7,11 @@ import { Home } from "./views/Home.js";
 import { SuccessMessage } from "./views/partials.js";
 import { sessionManager } from "./session-manager.js";
 const app = new Hono();
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const htmxPath = require.resolve("htmx.org/dist/htmx.min.js");
 // Serve htmx from node_modules
-app.use("/static/htmx.js", serveStatic({ path: "./node_modules/htmx.org/dist/htmx.min.js" }));
+app.use("/static/htmx.js", serveStatic({ path: htmxPath }));
 // Main page
 app.get("/", (c) => {
     return c.html(_jsx(Home, {}));

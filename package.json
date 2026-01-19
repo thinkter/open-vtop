@@ -4,13 +4,15 @@
   "scripts": {
     "dev": "tsx watch src/index.tsx",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.9",
-    "canvas": "^3.2.1",
     "hono": "^4.11.4",
-    "htmx.org": "^2.0.8"
+    "htmx.org": "^2.0.8",
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0"
   },
   "bin": {
     "open-vtop": "dist/index.js"
@@ -19,7 +21,9 @@
     "dist"
   ],
   "devDependencies": {
+    "@types/jpeg-js": "^0.3.0",
     "@types/node": "^20.11.17",
+    "@types/pngjs": "^6.0.5",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3"
   },
