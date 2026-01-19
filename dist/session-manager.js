@@ -276,7 +276,7 @@ class VTOPSessionManager {
                             solvedCaptcha = await solve(cleanDataUri);
                             console.log("✅ Solved CAPTCHA:", solvedCaptcha);
                             // Save captcha image for debugging
-                            if (parts?.base64) {
+                            if (parts?.base64 && process.env.DEBUG_CAPTCHA === "true") {
                                 const out = path.resolve(process.cwd(), "captcha.jpg");
                                 await saveCaptchaImage(parts.base64, out);
                                 //  console.log(`📷 Saved CAPTCHA image to ${out}`);
@@ -349,13 +349,25 @@ class VTOPSessionManager {
                                 : new URL(location, LOGIN_PAGE).toString();
                             await this.fetchWithCookies(redirectUrl);
                         }
-                        // After successfully submitting the captcha, assume login worked
-                        // The actual success will be determined when we try to fetch data
-                        console.log("🎉 Login POST submitted successfully!");
-                        this.state.loggedIn = true;
-                        this.state.username = username;
-                        this.state.regNo = regNo;
-                        return true;
+                        // After successfully submitting the captcha, we MUST verify login success
+                        console.log("POST successful, verifying login status...");
+                        // Try to navigate to post-login pages to confirm we are actually logged in
+                        // VTOP is tricky: a 200 OK on login POST doesn't guarantee success (could be wrong password)
+                        const navSuccess = await this.navigatePostLogin();
+                        if (navSuccess) {
+                            console.log("🎉 Login verified successfully!");
+                            this.state.loggedIn = true;
+                            this.state.username = username;
+                            this.state.regNo = regNo;
+                            return true;
+                        }
+                        else {
+                            console.error("❌ Login verification failed - cleaning up session");
+                            this.state.loggedIn = false;
+                            this.state.username = null;
+                            this.state.regNo = null;
+                            return false;
+                        }
                     }
                     catch (e) {
                         console.error("Login POST failed:", e);

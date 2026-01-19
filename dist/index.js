@@ -6,9 +6,25 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Home } from "./views/Home.js";
 import { SuccessMessage } from "./views/partials.js";
 import { sessionManager } from "./session-manager.js";
+import { readFile } from "fs/promises";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 const app = new Hono();
-// Serve htmx from node_modules
-app.use("/static/htmx.js", serveStatic({ path: "./node_modules/htmx.org/dist/htmx.min.js" }));
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// Serve htmx from node_modules - resolve absolute path
+const htmxPath = join(__dirname, "../node_modules/htmx.org/dist/htmx.min.js");
+app.get("/static/htmx.js", async (c) => {
+    try {
+        const content = await readFile(htmxPath);
+        return c.body(content, 200, {
+            "Content-Type": "application/javascript",
+        });
+    }
+    catch (e) {
+        console.error("Failed to serve HTMX:", e);
+        return c.text("Failed to load HTMX", 500);
+    }
+});
 // Main page
 app.get("/", (c) => {
     return c.html(_jsx(Home, {}));
@@ -24,10 +40,11 @@ app.get("/api/session/status", (c) => {
     const lastInit = state.lastInitialized
         ? new Date(state.lastInitialized).toLocaleString()
         : "Never";
-    const csrfToken = state.csrf || "None";
-    const jsessionid = state.cookies.get("JSESSIONID") || "None";
-    const serverid = state.cookies.get("SERVERID") || "None";
-    return c.html(_jsxs("div", { style: "font-family: monospace; padding: 1rem; background: #f5f5f5; border-radius: 4px; color: #000;", children: [_jsxs("div", { style: "margin-bottom: 0.5rem;", children: [_jsx("strong", { children: "Status:" }), " ", status] }), _jsxs("div", { style: "margin-bottom: 0.5rem;", children: [_jsx("strong", { children: "Last Initialized:" }), " ", lastInit] }), _jsxs("div", { style: "margin-bottom: 0.5rem;", children: [_jsx("strong", { children: "Total Cookies:" }), " ", state.cookies.size] }), _jsxs("div", { style: "margin-bottom: 0.5rem;", children: [_jsx("strong", { children: "CSRF Token:" }), " ", csrfToken] }), _jsxs("div", { style: "margin-bottom: 0.5rem;", children: [_jsx("strong", { children: "JSESSIONID:" }), " ", jsessionid] }), _jsxs("div", { children: [_jsx("strong", { children: "SERVERID:" }), " ", serverid] })] }));
+    // Redact sensitive values for security
+    const hasCsrf = !!state.csrf;
+    const hasJsession = state.cookies.has("JSESSIONID");
+    const hasServerId = state.cookies.has("SERVERID");
+    return c.html(_jsxs("div", { style: "font-family: monospace; padding: 1rem; background: #f5f5f5; border-radius: 4px; color: #000;", children: [_jsxs("div", { style: "margin-bottom: 0.5rem;", children: [_jsx("strong", { children: "Status:" }), " ", status] }), _jsxs("div", { style: "margin-bottom: 0.5rem;", children: [_jsx("strong", { children: "Last Initialized:" }), " ", lastInit] }), _jsxs("div", { style: "margin-bottom: 0.5rem;", children: [_jsx("strong", { children: "Total Cookies:" }), " ", state.cookies.size] }), _jsxs("div", { style: "margin-bottom: 0.5rem;", children: [_jsx("strong", { children: "CSRF Token:" }), " ", hasCsrf ? "✅ Present" : "❌ Missing"] }), _jsxs("div", { style: "margin-bottom: 0.5rem;", children: [_jsx("strong", { children: "JSESSIONID:" }), " ", hasJsession ? "✅ Present" : "❌ Missing"] }), _jsxs("div", { children: [_jsx("strong", { children: "SERVERID:" }), " ", hasServerId ? "✅ Present" : "❌ Missing"] })] }));
 });
 // Manual session refresh endpoint
 app.post("/api/session/refresh", async (c) => {
@@ -92,13 +109,16 @@ app.get("/api/login/status/html", (c) => {
 // Debug logs storage
 const debugLogs = [];
 function addDebugLog(level, message) {
-    const timestamp = new Date().toLocaleTimeString();
-    debugLogs.push({ timestamp, level, message });
-    // Keep only last 100 logs
-    if (debugLogs.length > 100) {
-        debugLogs.shift();
+    // Only log if specifically enabled
+    if (process.env.DEBUG_LOGS === "true") {
+        const timestamp = new Date().toLocaleTimeString();
+        debugLogs.push({ timestamp, level, message });
+        // Keep only last 100 logs
+        if (debugLogs.length > 100) {
+            debugLogs.shift();
+        }
+        console.log(`[${level}] ${message}`);
     }
-    console.log(`[${level}] ${message}`);
 }
 // Form-based login endpoint (for HTMX)
 app.post("/api/login/form", async (c) => {
@@ -111,18 +131,19 @@ app.post("/api/login/form", async (c) => {
             addDebugLog("ERROR", "Login attempt with missing credentials");
             return c.html(_jsxs("div", { style: "padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;", children: [_jsx("strong", { children: "\u274C Error:" }), " Username, password, and registration number are required."] }));
         }
-        addDebugLog("INFO", `Login requested for user: ${username} (${regNo})`);
+        // Don't log credentials even in debug
+        addDebugLog("INFO", "Login requested");
         // Show that login is in progress
         const startTime = Date.now();
         addDebugLog("INFO", "Starting login process - polling for text CAPTCHA...");
         const success = await sessionManager.login(username, password, regNo);
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
         if (success) {
-            addDebugLog("SUCCESS", `Login successful for ${username} (took ${duration}s)`);
+            addDebugLog("SUCCESS", `Login successful (took ${duration}s)`);
             return c.html(_jsxs("div", { style: "padding: 1rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;", children: [_jsx("strong", { children: "\uD83C\uDF89 Login Successful!" }), _jsxs("div", { style: "margin-top: 0.5rem;", children: ["Welcome, ", _jsx("strong", { children: username })] }), _jsxs("div", { style: "margin-top: 0.25rem; font-size: 0.85rem;", children: ["Login took ", duration, " seconds"] })] }));
         }
         else {
-            addDebugLog("ERROR", `Login failed for ${username} (took ${duration}s)`);
+            addDebugLog("ERROR", `Login failed (took ${duration}s)`);
             return c.html(_jsxs("div", { style: "padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;", children: [_jsx("strong", { children: "\u274C Login Failed" }), _jsx("div", { style: "margin-top: 0.5rem;", children: "Check your credentials or try again. VTOP might be showing reCAPTCHA." }), _jsxs("div", { style: "margin-top: 0.25rem; font-size: 0.85rem;", children: ["Attempt took ", duration, " seconds"] })] }));
         }
     }
@@ -133,6 +154,9 @@ app.post("/api/login/form", async (c) => {
 });
 // Debug logs endpoint
 app.get("/api/debug/logs", (c) => {
+    if (process.env.DEBUG_LOGS !== "true") {
+        return c.html(_jsx("div", { style: "color: #888;", children: "Debug logs are disabled. Set DEBUG_LOGS=true to enable." }));
+    }
     if (debugLogs.length === 0) {
         return c.html(_jsx("div", { style: "color: #888;", children: "No logs yet. Try logging in to see debug output." }));
     }
@@ -196,9 +220,10 @@ app.get("/api/assignments/html", async (c) => {
         return c.html(_jsxs("div", { style: "padding: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;", children: [_jsx("strong", { children: "\u274C Error:" }), " ", String(error)] }));
     }
 });
+const port = Number(process.env.PORT) || 6767;
 serve({
     fetch: app.fetch,
-    port: 6767,
+    port,
 }, (info) => {
     console.log(`🚀 Server is running on http://localhost:${info.port}`);
     console.log(`📊 Session status: http://localhost:${info.port}/api/session/status`);
