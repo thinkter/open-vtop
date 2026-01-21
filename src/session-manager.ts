@@ -647,25 +647,37 @@ class VTOPSessionManager {
       return [];
     }
 
-    const headers = {
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      "X-Requested-With": "XMLHttpRequest",
-      Referer: MAIN_PAGE,
-      Cookie: this.getCookieHeader(),
+    const cookies = this.getCookieHeader();
+    const now = new Date();
+    const apiHeaders = {
+      Accept: "*/*",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Accept-Language": "en-US,en;q=0.7",
+      "Content-Type": "application/x-www-form-urlencoded",
+      Cookie: cookies,
+      Origin: BASE,
+      Priority: "u=1, i",
+      Referer: CONTENT,
+      "Sec-Fetch-Dest": "empty",
+      "Sec-Fetch-Mode": "cors",
+      "Sec-Fetch-Site": "same-origin",
       "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
     };
 
-    const params = new URLSearchParams();
-    params.set("verifyMenu", "true");
-    if (this.state.csrf) params.set("_csrf", this.state.csrf);
+    await this.performAcademicsCheck(apiHeaders);
+
+    const assParams = new URLSearchParams();
+    assParams.set("authorizedID", this.state.regNo);
+    if (this.state.csrf) assParams.set("_csrf", this.state.csrf);
+    assParams.set("x", now.toUTCString());
 
     try {
       console.log("Fetching course details...");
       const res = await fetch(COURSE_DETAILS, {
         method: "POST",
-        headers,
-        body: params,
+        headers: apiHeaders,
+        body: assParams,
       });
 
       const html = await res.text();
