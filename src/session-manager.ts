@@ -517,15 +517,9 @@ class VTOPSessionManager {
           }));
         }
       }
-    } catch {
-      // Not JSON, try HTML parsing
-    }
+    } catch {}
 
-    // Parse HTML table rows using regex
-    // VTOP table structure: #(th), Course Name(td), Title(td), Last Date(td), Uploaded(td)
-    // Note: VTOP HTML sometimes has malformed tags like <<td
     const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-    // Match both <th> and <td> cells, and handle malformed <<td
     const cellRegex = /<?<t[hd][^>]*>([\s\S]*?)(?:<\/t[hd]>|<\/tr|<tr|$)/gi;
 
     let rowMatch;
@@ -533,8 +527,6 @@ class VTOPSessionManager {
       const cells: string[] = [];
       let cellMatch;
       const rowContent = rowMatch[1];
-
-      // Reset lastIndex for cell regex
       cellRegex.lastIndex = 0;
       while ((cellMatch = cellRegex.exec(rowContent)) !== null) {
         // Strip HTML tags from cell content
@@ -542,14 +534,7 @@ class VTOPSessionManager {
         cells.push(cellContent);
       }
 
-      // Skip header rows (first cell would be "#" or similar header text)
       if (cells.length >= 4 && cells[0] !== "#" && !isNaN(Number(cells[0]))) {
-        // Table structure: # (row num), Course Name, Title, Last Date, Uploaded
-        // cells[0] = row number (skip)
-        // cells[1] = Course Name
-        // cells[2] = Title (assignment title)
-        // cells[3] = Last Date (due date)
-        // cells[4] = Uploaded (status)
         assignments.push({
           courseCode: "", // Not in this table format
           courseName: cells[1] || "",
@@ -567,15 +552,12 @@ class VTOPSessionManager {
   private parseCourseDetailsHtml(html: string): CourseDetail[] {
     const courses: CourseDetail[] = [];
 
-    // Regex to match table rows
     const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
     const matches = [...html.matchAll(rowRegex)];
 
-    // Skip header row
     for (let i = 1; i < matches.length; i++) {
       const rowContent = matches[i][1];
 
-      // Extract Code and Name: <span class="mx-2 text-dark fw-bold">BCSE204L</span>-<span class="mx-2 text-dark">Design and Analysis of Algorithms</span>
       const codeMatch = rowContent.match(
         /<span[^>]*text-dark fw-bold[^>]*>([^<]+)<\/span>/,
       );
@@ -621,7 +603,17 @@ class VTOPSessionManager {
     return courses;
   }
 
-  private async performAcademicsCheck(headers: any): Promise<void> {
+  public async performAcademicsCheck(headers?: any): Promise<void> {
+    if (!headers) {
+      headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: this.getCookieHeader(),
+        Referer: CONTENT,
+        "User-Agent":
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+      };
+    }
+
     const now = new Date();
     const accParams = new URLSearchParams();
     accParams.set("authorizedID", this.state.regNo!);
@@ -698,7 +690,7 @@ class VTOPSessionManager {
       return [];
     }
 
-    await this.navigatePostLogin();
+    // await this.navigatePostLogin();
 
     const cookies = this.getCookieHeader();
     const now = new Date();
@@ -724,7 +716,7 @@ class VTOPSessionManager {
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
     };
 
-    await this.performAcademicsCheck(apiHeaders);
+    // await this.performAcademicsCheck(apiHeaders);
 
     const assParams = new URLSearchParams();
     assParams.set("authorizedID", this.state.regNo);

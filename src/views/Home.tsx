@@ -55,7 +55,7 @@ export const Home: FC = () => {
               type="text"
               id="regNo"
               name="regNo"
-              placeholder="e.g. 24BCI0150"
+              placeholder="e.g. 22BCE0001"
               style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;"
               required
             />

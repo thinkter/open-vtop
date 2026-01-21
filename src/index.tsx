@@ -15,7 +15,16 @@ app.use("/static/htmx.js", serveStatic({ path: htmxPath }));
 
 app.get("/", (c) => {
   if (sessionManager.isLoggedIn()) {
+    // Note: On simple refresh, we don't have the data pre-fetched.
+    // The Dashboard will fall back to HTMX loaders.
     return c.html(<Dashboard username={sessionManager.getUsername()!} />);
+  }
+  return c.redirect("/login");
+});
+
+app.get("/login", (c) => {
+  if (sessionManager.isLoggedIn()) {
+    return c.redirect("/");
   }
   return c.html(<Login />);
 });
@@ -41,7 +50,21 @@ app.post("/api/login/form", async (c) => {
     const success = await sessionManager.login(username, password, regNo);
 
     if (success) {
-      return c.html(<Dashboard username={username} />);
+      // Orchestrate the post-login sequence
+      await sessionManager.navigatePostLogin();
+      await sessionManager.performAcademicsCheck();
+
+      const courses = await sessionManager.fetchCourseDetails();
+      const assignments = await sessionManager.fetchUpcomingAssignments();
+
+      c.header("HX-Push-Url", "/");
+      return c.html(
+        <Dashboard
+          username={username}
+          courses={courses}
+          assignments={assignments}
+        />,
+      );
     } else {
       return c.html(
         <div
@@ -64,10 +87,10 @@ app.post("/api/login/form", async (c) => {
   }
 });
 
-// Course Details HTML Endpoint
+// Course Details HTML Endpoint (Compact Design)
 app.get("/api/courses/html", async (c) => {
   if (!sessionManager.isLoggedIn()) {
-    return c.html(<div class="text-red-500">Session expired.</div>);
+    return c.html(<div class="text-red-500 text-sm">Session expired.</div>);
   }
 
   try {
@@ -75,40 +98,40 @@ app.get("/api/courses/html", async (c) => {
 
     if (courses.length === 0) {
       return c.html(
-        <div class="p-8 text-center bg-surface border border-border rounded-lg text-muted">
+        <div class="p-8 text-center bg-surface border border-border rounded-lg text-muted text-sm">
           No course details found.
         </div>,
       );
     }
 
     return c.html(
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {courses.map((course, i) => (
           <div
             key={i}
-            class="p-4 bg-surface border border-border rounded-lg flex flex-col justify-between"
+            class="p-3 bg-surface border border-border rounded-lg flex flex-col justify-between h-full hover:border-muted transition-colors"
           >
             <div>
-              <div class="flex justify-between items-start mb-2">
-                <span class="text-xs font-bold text-muted uppercase tracking-wider">
+              <div class="flex justify-between items-start mb-1.5">
+                <span class="text-[0.65rem] font-bold text-muted uppercase tracking-wider">
                   {course.code}
                 </span>
-                <span class="text-[0.65rem] px-1.5 py-0.5 rounded border border-border text-muted">
+                <span class="text-[0.6rem] px-1.5 py-0.5 rounded border border-border text-muted">
                   {course.type}
                 </span>
               </div>
-              <h4 class="font-semibold text-sm mb-3 leading-snug">
+              <h4 class="font-semibold text-xs mb-2 leading-relaxed line-clamp-2">
                 {course.name}
               </h4>
             </div>
 
-            <div class="flex items-end justify-between mt-2 pt-3 border-t border-border/50">
+            <div class="flex items-end justify-between mt-2 pt-2 border-t border-border/50">
               <div class="flex flex-col">
-                <span class="text-[0.65rem] text-muted uppercase">
+                <span class="text-[0.6rem] text-muted uppercase">
                   Attendance
                 </span>
                 <span
-                  class={`text-lg font-bold ${
+                  class={`text-base font-bold ${
                     course.attendanceColor === "danger"
                       ? "text-red-500"
                       : course.attendanceColor === "warning"
@@ -121,7 +144,11 @@ app.get("/api/courses/html", async (c) => {
               </div>
               {course.remarks && (
                 <span
-                  class={`text-xs px-2 py-1 rounded bg-${course.attendanceColor === "danger" ? "red" : "green"}-500/10 text-${course.attendanceColor === "danger" ? "red" : "green"}-500`}
+                  class={`text-[0.6rem] px-1.5 py-0.5 rounded bg-${
+                    course.attendanceColor === "danger" ? "red" : "green"
+                  }-500/10 text-${
+                    course.attendanceColor === "danger" ? "red" : "green"
+                  }-500`}
                 >
                   {course.remarks}
                 </span>
@@ -133,18 +160,18 @@ app.get("/api/courses/html", async (c) => {
     );
   } catch (error) {
     return c.html(
-      <div class="p-4 border border-red-500 rounded-md text-red-500">
+      <div class="p-4 border border-red-500 rounded-md text-red-500 text-sm">
         Failed to load courses: {String(error)}
       </div>,
     );
   }
 });
 
+// Assignments HTML Endpoint (Compact Design)
 app.get("/api/assignments/html", async (c) => {
   if (!sessionManager.isLoggedIn()) {
-    // If session expired, redirect/render login
     return c.html(
-      <div class="text-red-500">
+      <div class="text-red-500 text-sm">
         Session expired. Please refresh to log in again.
       </div>,
     );
@@ -155,59 +182,61 @@ app.get("/api/assignments/html", async (c) => {
 
     if (assignments.length === 0) {
       return c.html(
-        <div class="p-12 text-center bg-surface border border-border rounded-lg">
-          <h3 class="text-lg font-medium mb-2">No Upcoming Assignments</h3>
-          <p class="text-muted">You are all caught up!</p>
+        <div class="p-6 text-center bg-surface border border-border rounded-lg">
+          <p class="text-sm text-muted">No assignments pending.</p>
         </div>,
       );
     }
 
     return c.html(
-      <div class="flex flex-col gap-3">
+      <div class="flex flex-col gap-2">
         {assignments.map((ass, i) => (
           <div
             key={i}
-            class="flex items-center justify-between p-4 bg-surface border border-border rounded-lg transition-colors hover:border-muted group"
+            class="p-3 bg-surface border border-border rounded-lg hover:border-muted transition-colors group flex flex-col gap-1"
           >
-            <div class="flex-1 min-w-0 pr-4">
-              <div class="flex items-baseline gap-3 overflow-hidden whitespace-nowrap text-ellipsis">
-                <span class="text-xs font-bold text-muted uppercase tracking-wider min-w-fit">
-                  {ass.courseCode}
-                </span>
-                <span class="font-semibold text-sm truncate">
-                  {ass.assignmentTitle}
-                </span>
-                <span class="text-xs text-muted">— {ass.courseName}</span>
-              </div>
-
-              <div class="flex gap-4 mt-1 text-xs text-muted">
-                <span>
-                  Due:{" "}
-                  <span class="text-foreground">{ass.dueDate || "N/A"}</span>
-                </span>
-                <span>
-                  Max:{" "}
-                  <span class="text-foreground">{ass.maxMarks || "N/A"}</span>
-                </span>
-              </div>
+            <div class="flex justify-between items-start gap-2">
+              <span
+                class="font-bold text-xs text-foreground line-clamp-1"
+                title={ass.courseName}
+              >
+                {ass.courseName}
+              </span>
+              <span class="text-[0.65rem] font-medium text-red-400 whitespace-nowrap shrink-0">
+                Due: {ass.dueDate || "N/A"}
+              </span>
             </div>
 
-            <span
-              class={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
-                ass.status?.toLowerCase().includes("pending")
-                  ? "bg-red-500/10 text-red-500 border border-red-500/20"
-                  : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
-              }`}
-            >
-              {ass.status || "Pending"}
-            </span>
+            <div class="flex justify-between items-end gap-2">
+              <div class="flex flex-col min-w-0">
+                <span
+                  class="text-[0.7rem] text-muted truncate"
+                  title={ass.assignmentTitle}
+                >
+                  {ass.assignmentTitle}
+                </span>
+                <span class="text-[0.6rem] text-muted/60 font-mono">
+                  {ass.courseCode}
+                </span>
+              </div>
+
+              <span
+                class={`text-[0.6rem] px-1.5 py-0.5 rounded font-medium whitespace-nowrap shrink-0 ${
+                  ass.status?.toLowerCase().includes("pending")
+                    ? "bg-red-500/10 text-red-500 border border-red-500/20"
+                    : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+                }`}
+              >
+                {ass.status || "Pending"}
+              </span>
+            </div>
           </div>
         ))}
       </div>,
     );
   } catch (error) {
     return c.html(
-      <div class="p-4 border border-red-500 rounded-md text-red-500">
+      <div class="p-4 border border-red-500 rounded-md text-red-500 text-sm">
         Failed to load assignments: {String(error)}
       </div>,
     );

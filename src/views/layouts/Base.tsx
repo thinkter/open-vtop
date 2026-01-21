@@ -67,8 +67,10 @@ export const BaseLayout: FC<{ title: string; children: any }> = ({
           }}
         />
       </head>
-      <body class="bg-background text-foreground antialiased min-h-screen flex flex-col items-center justify-center p-4">
-        <main class="w-full max-w-md flex flex-col gap-6">{children}</main>
+      <body class="bg-background text-foreground antialiased min-h-screen">
+        <main class="w-full max-w-[1800px] mx-auto p-4 md:p-6 flex flex-col gap-6">
+          {children}
+        </main>
       </body>
     </html>
   );
