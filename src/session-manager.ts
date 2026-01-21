@@ -1,26 +1,39 @@
 //seperations of concerns my arse
-
+//nvm i did sepearations of concerns
 import {
   solve,
   extractDataUriParts,
   saveCaptchaImage,
 } from "./captcha-solver.js";
 import * as path from "path";
-
-const BASE = "https://vtop.vit.ac.in";
-const VTOP = `${BASE}/vtop/`;
-const OPEN_PAGE = `${BASE}/vtop/openPage`;
-const OPEN_PAGE_ALT = `${BASE}/vtop/open/page`;
-const PRELOGIN_SETUP = `${BASE}/vtop/prelogin/setup`;
-const LOGIN_PAGE = `${BASE}/vtop/login`;
-
-const INIT_PAGE = `${BASE}/vtop/init/page`;
-const MAIN_PAGE = `${BASE}/vtop/main/page`;
-const VTOP_OPEN = `${BASE}/vtop/open`;
-const CONTENT = `${BASE}/vtop/content`;
-const ACADEMICS_CHECK = `${BASE}/vtop/academics/common/AcademicsDefaultCheck`;
-const UPCOMING_ASSIGNMENTS = `${BASE}/vtop/get/upcoming/digital/assignments`;
-const COURSE_DETAILS = `${BASE}/vtop/get/dashboard/current/semester/course/details`;
+import {
+  BASE,
+  VTOP,
+  OPEN_PAGE,
+  OPEN_PAGE_ALT,
+  PRELOGIN_SETUP,
+  LOGIN_PAGE,
+  INIT_PAGE,
+  MAIN_PAGE,
+  VTOP_OPEN,
+  CONTENT,
+  ACADEMICS_CHECK,
+  UPCOMING_ASSIGNMENTS,
+  COURSE_DETAILS,
+  BROWSER_HEADERS,
+  LOGIN_POST_HEADERS,
+  POST_LOGIN_HEADERS,
+  API_REQUEST_HEADERS,
+  ACADEMICS_CHECK_HEADERS,
+} from "./constants.js";
+import {
+  extractCsrf,
+  extractRegNo,
+  detectCaptcha,
+  parseAssignmentsHtml,
+  parseCourseDetailsHtml,
+  type CaptchaDetectionResult,
+} from "./parsers.js";
 
 export interface Assignment {
   courseCode: string;
@@ -47,14 +60,7 @@ interface SessionState {
   lastInitialized: Date | null;
   loggedIn: boolean;
   username: string | null;
-  regNo: string | null; // Registration number for API calls
-}
-
-interface CaptchaDetectionResult {
-  isTextCaptcha: boolean;
-  isRecaptcha: boolean;
-  csrf: string | null;
-  imgDataUri: string | null;
+  regNo: string | null;
 }
 
 class VTOPSessionManager {
@@ -67,24 +73,6 @@ class VTOPSessionManager {
     username: null,
     regNo: null,
   };
-
-  //cheerio at home
-  private extractCsrf(html: string): string | null {
-    const patterns = [
-      /name="_csrf"\s+value="([^"]+)"/,
-      /name='_csrf'\s+value='([^']+)'/,
-      /<input[^>]*name="_csrf"[^>]*value="([^"]+)"/,
-      /<input[^>]*value="([^"]+)"[^>]*name="_csrf"/,
-    ];
-
-    for (const pattern of patterns) {
-      const match = html.match(pattern);
-      if (match && match[1]) {
-        return match[1];
-      }
-    }
-    return null;
-  }
 
   private storeCookies(response: Response): void {
     const setCookieHeaders = response.headers.getSetCookie?.() || [];
@@ -101,7 +89,7 @@ class VTOPSessionManager {
   private getCookieHeader(): string {
     return Array.from(this.state.cookies.entries())
       .map(([name, value]) => `${name}=${value}`)
-      .join("; ");
+      .join("; "); //vvvimp
   }
 
   private async fetchWithCookies(
@@ -115,23 +103,14 @@ class VTOPSessionManager {
       headers.set("Cookie", cookieHeader);
     }
 
-    headers.set(
-      "User-Agent",
-      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    );
-    headers.set(
-      "Accept",
-      "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    );
-    headers.set("Accept-Language", "en-US,en;q=0.9");
-    headers.set("Accept-Encoding", "gzip, deflate, br");
-    headers.set("Connection", "keep-alive");
-    headers.set("Upgrade-Insecure-Requests", "1");
+    Object.entries(BROWSER_HEADERS).forEach(([key, value]) => {
+      headers.set(key, value);
+    });
 
     const response = await fetch(url, {
       ...options,
       headers,
-      redirect: "manual", // Handle redirects manually to capture cookies
+      redirect: "manual",
     });
 
     this.storeCookies(response);
@@ -156,34 +135,32 @@ class VTOPSessionManager {
     try {
       console.log("Initializing VTOP session...");
 
-      // Step 1: GET / to get SERVERID cookie
+      // 1: GET / to get SERVERID cookie
       console.log("Step 1: GET / to get SERVERID...");
       await this.fetchWithCookies(BASE);
-      console.log(" ✓ OK");
+      console.log("OK");
 
-      // Step 2: GET /vtop/ to get JSESSIONID cookie
+      // 2: GET /vtop/ to get JSESSIONID cookie
       console.log("Step 2: GET /vtop/ to get JSESSIONID...");
       await this.fetchWithCookies(VTOP);
-      console.log(" ✓ OK");
+      console.log("OK");
 
-      // Step 3: GET /vtop/openPage for CSRF token
+      // 3: GET /vtop/openPage for CSRF token
       console.log("Step 3: GET /vtop/openPage for CSRF...");
       const openPageRes = await this.fetchWithCookies(OPEN_PAGE);
       const openPageHtml = await openPageRes.text();
-      console.log(" ✓ OK");
+      console.log("OK");
 
-      const csrf = this.extractCsrf(openPageHtml);
+      const csrf = extractCsrf(openPageHtml);
       if (!csrf) {
-        console.warn(
-          "⚠Warning: _csrf not found on /vtop/openPage. Continuing anyway...",
-        );
+        console.warn("Warning: _csrf not found on /vtop/openPage.");
       } else {
         this.state.csrf = csrf;
-        console.log(` ✓ Found _csrf: ${csrf.substring(0, 20)}...`);
+        console.log(`Found _csrf: ${csrf.substring(0, 20)}...`);
       }
 
-      // Step 4: POST /vtop/prelogin/setup
-      console.log("Step 4: POST /vtop/prelogin/setup (flag=VTOP)...");
+      // 4: POST /vtop/prelogin/setup
+      console.log("Step 4: POST /vtop/prelogin/setup flag=VTOP");
       const formData = new URLSearchParams();
       if (csrf) {
         formData.set("_csrf", csrf);
@@ -244,44 +221,9 @@ class VTOPSessionManager {
     await this.initialize();
   }
 
-  private detectCaptcha(html: string): CaptchaDetectionResult {
-    // reCAPTCHA signals
-    const recaptchaDom =
-      html.includes('id="recaptcha"') ||
-      html.includes('id="g-recaptcha"') ||
-      html.includes('class="g-recaptcha"');
-    const recaptchaJs = html.includes("var captchaType=2");
-    const isRecaptcha = recaptchaDom || recaptchaJs;
-
-    const hasCaptchaInput =
-      html.includes('name="captchaStr"') || html.includes('id="captchaStr"');
-
-    const imgDataUriMatches = [
-      ...html.matchAll(/src=["'](data:image\/[^"']+)["']/gi),
-    ];
-    let imgDataUri: string | null = null;
-
-    for (const match of imgDataUriMatches) {
-      if (match[1] && !match[1].includes(";base64,null")) {
-        imgDataUri = match[1];
-        break;
-      }
-    }
-
-    if (!imgDataUri && imgDataUriMatches.length > 0) {
-      console.warn("Detected invalid captcha image (base64 is null)");
-    }
-
-    const isTextCaptcha = hasCaptchaInput && imgDataUri !== null;
-
-    const csrf = this.extractCsrf(html);
-
-    return { isTextCaptcha, isRecaptcha, csrf, imgDataUri };
-  }
   async login(
     username: string,
     password: string,
-    regNo: string,
     maxAttempts: number = 10,
   ): Promise<boolean> {
     if (!this.state.initialized) {
@@ -302,7 +244,7 @@ class VTOPSessionManager {
         const body = await res.text();
 
         const { isTextCaptcha, isRecaptcha, csrf, imgDataUri } =
-          this.detectCaptcha(body);
+          detectCaptcha(body);
 
         const curJsession = this.state.cookies.get("JSESSIONID") || "(?)";
         const curServerID = this.state.cookies.get("SERVERID") || "(?)";
@@ -360,20 +302,7 @@ class VTOPSessionManager {
           const _cookies = `JSESSIONID=${curJsession}; SERVERID=${curServerID}`;
 
           const postHeaders = {
-            "Cache-Control": "max-age=0",
-            Origin: BASE,
-            Referer: OPEN_PAGE_ALT,
-            "Content-Type": "application/x-www-form-urlencoded",
-            Accept:
-              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br, zstd",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "same-origin",
-            "Sec-Fetch-User": "?1",
-            "Upgrade-Insecure-Requests": "1",
-            Priority: "u=0, i",
+            ...LOGIN_POST_HEADERS,
             Cookie: _cookies,
           };
 
@@ -407,7 +336,6 @@ class VTOPSessionManager {
             console.log("Login POST submitted successfully!");
             this.state.loggedIn = true;
             this.state.username = username;
-            this.state.regNo = regNo;
             return true;
           } catch (e) {
             console.error("Login POST failed:", e);
@@ -447,16 +375,7 @@ class VTOPSessionManager {
 
     const cookies = this.getCookieHeader();
     const headers = {
-      Referer: LOGIN_PAGE,
-      "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
-      "Cache-Control": "max-age=0",
-      "Upgrade-Insecure-Requests": "1",
-      Origin: BASE,
-      "Content-Type": "application/x-www-form-urlencoded",
+      ...POST_LOGIN_HEADERS,
       Cookie: cookies,
     };
 
@@ -480,10 +399,18 @@ class VTOPSessionManager {
       const contentHtml = await contentRes.text();
       console.log(` -> /vtop/content: ${contentRes.status}`);
 
-      const newCsrf = this.extractCsrf(contentHtml);
+      const newCsrf = extractCsrf(contentHtml);
       if (newCsrf) {
         this.state.csrf = newCsrf;
         console.log(`Updated CSRF token from content page`);
+      }
+
+      const regNo = extractRegNo(contentHtml);
+      if (regNo) {
+        this.state.regNo = regNo;
+        console.log(`Extracted registration number: ${regNo}`);
+      } else {
+        console.warn("Failed to extract registration number from content page");
       }
 
       console.log("Post-login navigation complete");
@@ -494,123 +421,11 @@ class VTOPSessionManager {
     }
   }
 
-  //slop
-  private parseAssignmentsHtml(html: string): Assignment[] {
-    const assignments: Assignment[] = [];
-
-    try {
-      const jsonMatch = html.match(/\[[\s\S]*?\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item: Record<string, unknown>) => ({
-            courseCode: String(item.courseCode || item.code || ""),
-            courseName: String(item.courseName || item.name || ""),
-            assignmentTitle: String(
-              item.assignmentTitle || item.title || item.assignmentName || "",
-            ),
-            dueDate: String(
-              item.dueDate || item.endDate || item.deadline || "",
-            ),
-            status: String(item.status || ""),
-            maxMarks: String(item.maxMarks || item.marks || ""),
-          }));
-        }
-      }
-    } catch {}
-
-    const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-    const cellRegex = /<?<t[hd][^>]*>([\s\S]*?)(?:<\/t[hd]>|<\/tr|<tr|$)/gi;
-
-    let rowMatch;
-    while ((rowMatch = rowRegex.exec(html)) !== null) {
-      const cells: string[] = [];
-      let cellMatch;
-      const rowContent = rowMatch[1];
-      cellRegex.lastIndex = 0;
-      while ((cellMatch = cellRegex.exec(rowContent)) !== null) {
-        // Strip HTML tags from cell content
-        const cellContent = cellMatch[1].replace(/<[^>]+>/g, "").trim();
-        cells.push(cellContent);
-      }
-
-      if (cells.length >= 4 && cells[0] !== "#" && !isNaN(Number(cells[0]))) {
-        assignments.push({
-          courseCode: "", // Not in this table format
-          courseName: cells[1] || "",
-          assignmentTitle: cells[2] || "",
-          dueDate: cells[3] || "",
-          status: cells[4] || "Pending",
-          maxMarks: "", // Not in this table format
-        });
-      }
-    }
-
-    return assignments;
-  }
-
-  private parseCourseDetailsHtml(html: string): CourseDetail[] {
-    const courses: CourseDetail[] = [];
-
-    const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
-    const matches = [...html.matchAll(rowRegex)];
-
-    for (let i = 1; i < matches.length; i++) {
-      const rowContent = matches[i][1];
-
-      const codeMatch = rowContent.match(
-        /<span[^>]*text-dark fw-bold[^>]*>([^<]+)<\/span>/,
-      );
-      const nameMatch = rowContent.match(
-        /-[\s\n]*<span[^>]*text-dark[^>]*>([^<]+)<\/span>/,
-      );
-
-      // Extract Type: <td class="fst-italic text-primary fw-bold mx-1">TH</td>
-      const typeMatch = rowContent.match(
-        /<td[^>]*fst-italic[^>]*>([^<]+)<\/td>/,
-      );
-
-      // Extract Attendance: <span class="text-danger fw-bold">65.0</span>
-      // Capture color class as well to determine status
-      const attendanceMatch = rowContent.match(
-        /<span class="text-([a-z]+)[^>]*fw-bold">([\d.]+)<\/span>/,
-      );
-
-      // Extract Remarks: <span class="text-danger fw-bold">Critical - must improve</span>
-      // This usually comes after attendance in the last column
-      const remarksMatch =
-        rowContent.match(
-          /<span class="text-[^>]*>([^<]+)<\/span>[\s\n]*<\/td>[\s\n]*<\/tr>$/,
-        ) ||
-        rowContent.match(
-          /<td[^>]*text-nowrap text-start[^>]*>[\s\S]*?<span[^>]*>([^<]+)<\/span>/,
-        );
-
-      if (codeMatch && nameMatch) {
-        courses.push({
-          code: codeMatch[1].trim(),
-          name: nameMatch[1].trim(),
-          type: typeMatch ? typeMatch[1].trim() : "N/A",
-          attendance: attendanceMatch ? attendanceMatch[2].trim() : "N/A",
-          attendanceColor: attendanceMatch
-            ? attendanceMatch[1].trim()
-            : "secondary",
-          remarks: remarksMatch ? remarksMatch[1].trim() : "",
-        });
-      }
-    }
-
-    return courses;
-  }
-
   public async performAcademicsCheck(headers?: any): Promise<void> {
     if (!headers) {
       headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
+        ...ACADEMICS_CHECK_HEADERS,
         Cookie: this.getCookieHeader(),
-        Referer: CONTENT,
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
       };
     }
 
@@ -642,19 +457,8 @@ class VTOPSessionManager {
     const cookies = this.getCookieHeader();
     const now = new Date();
     const apiHeaders = {
-      Accept: "*/*",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
-      "Accept-Language": "en-US,en;q=0.7",
-      "Content-Type": "application/x-www-form-urlencoded",
+      ...API_REQUEST_HEADERS,
       Cookie: cookies,
-      Origin: BASE,
-      Priority: "u=1, i",
-      Referer: CONTENT,
-      "Sec-Fetch-Dest": "empty",
-      "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Site": "same-origin",
-      "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
     };
 
     await this.performAcademicsCheck(apiHeaders);
@@ -675,7 +479,7 @@ class VTOPSessionManager {
       const html = await res.text();
       console.log("Course details HTML:", html);
 
-      const courses = this.parseCourseDetailsHtml(html);
+      const courses = parseCourseDetailsHtml(html);
       console.log(`Parsed ${courses.length} courses`);
       return courses;
     } catch (error) {
@@ -695,25 +499,9 @@ class VTOPSessionManager {
     const cookies = this.getCookieHeader();
     const now = new Date();
 
-    const accParams = new URLSearchParams();
-    accParams.set("authorizedID", this.state.regNo);
-    if (this.state.csrf) accParams.set("_csrf", this.state.csrf);
-    accParams.set("x", now.toUTCString());
-
     const apiHeaders = {
-      Accept: "*/*",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
-      "Accept-Language": "en-US,en;q=0.7",
-      "Content-Type": "application/x-www-form-urlencoded",
+      ...API_REQUEST_HEADERS,
       Cookie: cookies,
-      Origin: BASE,
-      Priority: "u=1, i",
-      Referer: CONTENT,
-      "Sec-Fetch-Dest": "empty",
-      "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Site": "same-origin",
-      "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
     };
 
     // await this.performAcademicsCheck(apiHeaders);
@@ -737,7 +525,7 @@ class VTOPSessionManager {
       console.log(` -> Raw response:\n${assBody}`);
 
       if (assBody) {
-        const assignments = this.parseAssignmentsHtml(assBody);
+        const assignments = parseAssignmentsHtml(assBody);
         console.log(` Parsed ${assignments.length} assignments`);
         return assignments;
       }

@@ -88,23 +88,6 @@ export const Login: FC = () => {
                 </div>
               </div>
 
-              <div class="space-y-2">
-                <label
-                  class="text-xs font-medium text-muted uppercase tracking-wider"
-                  for="regNo"
-                >
-                  Reg No
-                </label>
-                <input
-                  type="text"
-                  id="regNo"
-                  name="regNo"
-                  required
-                  placeholder="e.g. 22BCE0001"
-                  class="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-white/40 transition-all placeholder-muted/50"
-                />
-              </div>
-
               <button
                 type="submit"
                 class="w-full bg-white text-black font-bold text-sm py-3 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 mt-2"
