@@ -11,6 +11,7 @@ export const BaseLayout: FC<{ title: string; children: any }> = ({
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title}</title>
         <script src="/static/htmx.js"></script>
+        <script src="/static/sse.js"></script>
 
         {/* Tailwind CSS */}
         <script src="https://cdn.tailwindcss.com"></script>

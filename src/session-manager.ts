@@ -6,6 +6,7 @@ import {
   saveCaptchaImage,
 } from "./captcha-solver.js";
 import * as path from "path";
+import { EventEmitter } from "events";
 import {
   BASE,
   VTOP,
@@ -73,6 +74,8 @@ class VTOPSessionManager {
     username: null,
     regNo: null,
   };
+
+  public readonly events = new EventEmitter();
 
   private storeCookies(response: Response): void {
     const setCookieHeaders = response.headers.getSetCookie?.() || [];
@@ -249,9 +252,10 @@ class VTOPSessionManager {
         const curJsession = this.state.cookies.get("JSESSIONID") || "(?)";
         const curServerID = this.state.cookies.get("SERVERID") || "(?)";
 
-        console.log(
-          `Attempt ${attempt}: status ${res.status} | text-captcha=${isTextCaptcha ? "YES" : "no"} | recaptcha=${isRecaptcha ? "YES" : "no"} | JSESSIONID=${curJsession}`,
-        );
+        // const logMsg = `Attempt ${attempt}: status ${res.status}\ntext-captcha=${isTextCaptcha ? "YES" : "no"} | recaptcha=${isRecaptcha ? "YES" : "no"} | JSESSIONID=${curJsession}`;
+        const logMsg = `Attempt ${attempt} text-captcha=${isTextCaptcha ? "YES" : "no"} recaptcha=${isRecaptcha ? "YES" : "no"} `;
+        console.log(logMsg);
+        this.events.emit("log", logMsg);
 
         if (isTextCaptcha) {
           let solvedCaptcha = "";
@@ -336,6 +340,7 @@ class VTOPSessionManager {
             console.log("Login POST submitted successfully!");
             this.state.loggedIn = true;
             this.state.username = username;
+            this.events.emit("login-complete");
             return true;
           } catch (e) {
             console.error("Login POST failed:", e);
@@ -356,6 +361,7 @@ class VTOPSessionManager {
     }
 
     console.log(`Login failed after ${maxAttempts} attempts`);
+    this.events.emit("login-complete");
     return false;
   }
 

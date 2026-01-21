@@ -7,7 +7,7 @@ export const Home: FC = () => {
       <h1>Open-VTOP</h1>
 
       <div class="section">
-        <h2>🔐 Login to VTOP</h2>
+        <h2>Login to VTOP</h2>
         <form
           id="login-form"
           style="display: flex; flex-direction: column; gap: 0.75rem; max-width: 400px;"

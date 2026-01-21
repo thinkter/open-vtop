@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Login } from "./views/Login.js";
 import { Dashboard } from "./views/Dashboard.js";
@@ -15,8 +16,10 @@ import { SessionExpired } from "./components/SessionExpired.js";
 const app = new Hono();
 const require = createRequire(import.meta.url);
 const htmxPath = require.resolve("htmx.org/dist/htmx.min.js");
+const ssePath = require.resolve("htmx-ext-sse/sse.js");
 
 app.use("/static/htmx.js", serveStatic({ path: htmxPath }));
+app.use("/static/sse.js", serveStatic({ path: ssePath }));
 
 app.get("/", (c) => {
   if (sessionManager.isLoggedIn()) {
@@ -67,6 +70,48 @@ app.post("/api/login/form", async (c) => {
   } catch (error) {
     return c.html(<ErrorMessage message={`Server error: ${String(error)}`} />);
   }
+});
+
+app.get("/api/login/events", async (c) => {
+  return streamSSE(c, async (stream) => {
+    console.log("SSE connected");
+    let keepOpen = true;
+
+    const onLog = async (msg: string) => {
+      console.log("SSE log:", msg);
+      await stream.writeSSE({
+        data: msg,
+        event: "log",
+      });
+    };
+
+    const onComplete = async () => {
+      console.log("SSE complete");
+      await stream.writeSSE({
+        data: "done",
+        event: "login-complete",
+      });
+      keepOpen = false;
+    };
+
+    sessionManager.events.on("log", onLog);
+    sessionManager.events.once("login-complete", onComplete);
+
+    stream.onAbort(() => {
+      console.log("SSE aborted");
+      sessionManager.events.off("log", onLog);
+      sessionManager.events.off("login-complete", onComplete);
+      keepOpen = false;
+    });
+
+    while (keepOpen) {
+      // Keep the stream open
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    sessionManager.events.off("log", onLog);
+    sessionManager.events.off("login-complete", onComplete);
+  });
 });
 
 app.get("/api/courses/html", async (c) => {

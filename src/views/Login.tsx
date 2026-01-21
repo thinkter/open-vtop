@@ -125,6 +125,33 @@ export const Login: FC = () => {
 
               <div id="error-message"></div>
             </form>
+
+            {/*fix this*/}
+            <template x-if="loading">
+              <div class="mt-6" x-init="htmx.process($el)">
+                <div class="relative bg-black/40 border border-white/10 rounded-lg p-4 overflow-hidden group">
+                  <div class="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                  <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0">
+                      <div class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                      </div>
+                    </div>
+                    <div
+                      class="font-mono text-xs text-green-200/90 w-full truncate"
+                      hx-ext="sse"
+                      sse-connect="/api/login/events"
+                      sse-swap="log"
+                      sse-close="login-complete"
+                      hx-swap="innerHTML"
+                    >
+                      Initializing connection...
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </div>
