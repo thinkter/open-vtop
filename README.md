@@ -1,7 +1,13 @@
 # Open-VTOP
 
 An open-source VTOP client with automatic session management.
+```bash
+npx open-vtop
+bunx open-vtop
 
+npx open-vtop logs
+bunx open-vtop logs
+```
 ## Todo
 1) save usn and password for future use
 2) grab regno from the responses it self
@@ -24,6 +30,7 @@ bun i
 
 ```bash
 bun start 
+bun run logs    #for logs
 ```
 
 Then open http://localhost:6767

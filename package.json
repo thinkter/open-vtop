@@ -6,6 +6,7 @@
     "dev-cli": "node src/cli.cjs",
     "build": "tsc && cp src/cli.cjs dist/cli.cjs",
     "start": "node dist/cli.cjs",
+    "logs": "node dist/cli.cjs logs",
     "prepare": "npm run build"
   },
   "dependencies": {

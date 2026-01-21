@@ -4,6 +4,9 @@ const { exec } = require("child_process");
 const { platform } = require("os");
 const path = require("path");
 
+const args = process.argv.slice(2);
+const showLogs = args.includes("logs");
+
 const colors = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
@@ -119,13 +122,15 @@ serverProcess.stdout.on("data", (data) => {
     printBanner();
     setupKeyboardShortcuts();
     openBrowser(URL);
-  } else {
+  } else if (showLogs) {
     process.stdout.write(data);
   }
 });
 
 serverProcess.stderr.on("data", (data) => {
-  process.stderr.write(data);
+  if (showLogs) {
+    process.stderr.write(data);
+  }
 });
 
 serverProcess.on("error", (err) => {
