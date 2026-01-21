@@ -10,6 +10,7 @@
   "dependencies": {
     "@hono/node-server": "^1.19.9",
     "hono": "^4.11.4",
+    "htmx-ext-sse": "^2.2.4",
     "htmx.org": "^2.0.8",
     "jpeg-js": "^0.4.4",
     "pngjs": "^7.0.0"
