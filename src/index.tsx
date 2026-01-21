@@ -15,8 +15,6 @@ app.use("/static/htmx.js", serveStatic({ path: htmxPath }));
 
 app.get("/", (c) => {
   if (sessionManager.isLoggedIn()) {
-    // Note: On simple refresh, we don't have the data pre-fetched.
-    // The Dashboard will fall back to HTMX loaders.
     return c.html(<Dashboard username={sessionManager.getUsername()!} />);
   }
   return c.redirect("/login");
@@ -50,7 +48,6 @@ app.post("/api/login/form", async (c) => {
     const success = await sessionManager.login(username, password, regNo);
 
     if (success) {
-      // Orchestrate the post-login sequence
       await sessionManager.navigatePostLogin();
       await sessionManager.performAcademicsCheck();
 
@@ -87,10 +84,13 @@ app.post("/api/login/form", async (c) => {
   }
 });
 
-// Course Details HTML Endpoint (Compact Design)
 app.get("/api/courses/html", async (c) => {
   if (!sessionManager.isLoggedIn()) {
-    return c.html(<div class="text-red-500 text-sm">Session expired.</div>);
+    return c.html(
+      <div class="text-red-500 text-sm">
+        Session expired.Please login again
+      </div>,
+    );
   }
 
   try {

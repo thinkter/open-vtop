@@ -13,27 +13,12 @@ export const Login: FC = () => {
       >
         <div class="w-full space-y-8">
           <div class="flex flex-col items-center text-center">
-            <div class="h-12 w-12 rounded-xl bg-white text-black flex items-center justify-center mb-6 shadow-lg shadow-white/10">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="2"
-                stroke="currentColor"
-                class="w-6 h-6"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.499 5.258 50.558 50.558 0 01-2.658.812m-15.482 0a50.553 50.553 0 0115.482 0m-1.566-4.346a6.053 6.053 0 01-5.91 5.863 6.053 6.053 0 00-5.9-5.863"
-                />
-              </svg>
-            </div>
             <h1 class="text-2xl font-bold tracking-tight text-white">
               Welcome back
             </h1>
-            <p class="text-sm text-muted mt-2">
-              Enter your credentials to access the portal
+            <p class="text-sm mt-2">
+              Enter your vtop username and password.This app runs completely
+              clientside and has no telemetry{" "}
             </p>
           </div>
 
@@ -158,8 +143,6 @@ export const Login: FC = () => {
               <div id="error-message"></div>
             </form>
           </div>
-
-          <p class="text-center text-xs text-muted/50">Open-VTOP &copy; 2026</p>
         </div>
       </div>
     </BaseLayout>
