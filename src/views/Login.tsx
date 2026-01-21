@@ -126,7 +126,7 @@ export const Login: FC = () => {
               <div id="error-message"></div>
             </form>
 
-            {/*fix this*/}
+            {/*fix this i don't know tailwind bruh :crying:*/}
             <template x-if="loading">
               <div class="mt-6" x-init="htmx.process($el)">
                 <div class="relative bg-black/40 border border-white/10 rounded-lg p-4 overflow-hidden group">
