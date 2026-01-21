@@ -29,3 +29,4 @@ lerna-debug.log*
 captcha.jpg
 review.md
 
+dist/

@@ -1,121 +1,43 @@
 import { jsx as _jsx, jsxs as _jsxs } from "hono/jsx/jsx-runtime";
-export const BaseLayout = ({ title = "Open-VTOP", children, }) => {
-    return (_jsxs("html", { lang: "en", children: [_jsxs("head", { children: [_jsx("meta", { charset: "UTF-8" }), _jsx("meta", { name: "viewport", content: "width=device-width, initial-scale=1.0" }), _jsx("title", { children: title }), _jsx("script", { src: "/static/htmx.js" }), _jsx("style", { children: `
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+export const BaseLayout = ({ title, children, }) => {
+    return (_jsxs("html", { lang: "en", children: [_jsxs("head", { children: [_jsx("meta", { charset: "UTF-8" }), _jsx("meta", { name: "viewport", content: "width=device-width, initial-scale=1.0" }), _jsx("title", { children: title }), _jsx("script", { src: "/static/htmx.js" }), _jsx("script", { src: "https://cdn.tailwindcss.com" }), _jsx("script", { dangerouslySetInnerHTML: {
+                            __html: `
+          tailwind.config = {
+            theme: {
+              extend: {
+                colors: {
+                  background: '#000000',
+                  surface: '#111111',
+                  border: '#333333',
+                  foreground: '#ffffff',
+                  muted: '#888888',
+                  primary: '#ffffff',
+                  'primary-fg': '#000000',
+                },
+                fontFamily: {
+                  sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                }
+              }
+            }
           }
-
+        `,
+                        } }), _jsx("script", { defer: true, src: "https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" }), _jsx("style", { dangerouslySetInnerHTML: {
+                            __html: `
           body {
-            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Dank Mono', 'Source Code Pro', monospace;
-            background: #000;
-            color: #fff;
-            min-height: 100vh;
-            padding: 2rem;
-            line-height: 1.6;
+            background-color: theme('colors.background');
+            color: theme('colors.foreground');
           }
-
-          h1 {
-            font-size: 2rem;
-            font-weight: 600;
-            margin-bottom: 2rem;
-            letter-spacing: -0.02em;
+          /* Custom spinner animation since Tailwind's animate-spin is utility based */
+          .htmx-indicator {
+            display: none;
+            opacity: 0;
+            transition: opacity 200ms ease-in;
           }
-
-          h2 {
-            font-size: 1.25rem;
-            font-weight: 500;
-            margin-bottom: 1rem;
-            letter-spacing: -0.01em;
+          .htmx-request .htmx-indicator,
+          .htmx-request.htmx-indicator {
+            display: inline-block;
+            opacity: 1;
           }
-
-          .container {
-            max-width: 800px;
-            margin: 0 auto;
-          }
-
-          .section {
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            transition: border-color 0.2s ease;
-          }
-
-          .section:hover {
-            border-color: #555;
-          }
-
-          button {
-            background: #fff;
-            color: #000;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.875rem;
-            font-family: inherit;
-            font-weight: 500;
-            transition: all 0.2s ease;
-          }
-
-          button:hover {
-            background: #e6e6e6;
-            transform: translateY(-1px);
-          }
-
-          button:active {
-            transform: translateY(0);
-          }
-
-          input {
-            background: #111;
-            color: #fff;
-            border: 1px solid #333;
-            padding: 0.75rem 1rem;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            font-family: inherit;
-            width: 100%;
-            transition: border-color 0.2s ease;
-          }
-
-          input:focus {
-            outline: none;
-            border-color: #fff;
-          }
-
-          input::placeholder {
-            color: #666;
-          }
-
-          #result {
-            margin-top: 1rem;
-            padding: 1rem;
-            background: #0a0a0a;
-            border: 1px solid #222;
-            border-radius: 6px;
-            min-height: 2rem;
-            font-size: 0.875rem;
-          }
-
-          .success {
-            color: #0f0;
-          }
-
-          .error {
-            color: #f00;
-          }
-
-          .htmx-swapping {
-            opacity: 0.5;
-            transition: opacity 0.2s;
-          }
-
-          .htmx-request {
-            opacity: 0.8;
-          }
-        ` })] }), _jsx("body", { children: _jsx("div", { class: "container", children: children }) })] }));
+        `,
+                        } })] }), _jsx("body", { class: "bg-background text-foreground antialiased min-h-screen", children: _jsx("main", { class: "w-full max-w-[1800px] mx-auto p-4 md:p-6 flex flex-col gap-6", children: children }) })] }));
 };
