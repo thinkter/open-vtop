@@ -3,8 +3,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.tsx",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "dev-cli": "node src/cli.cjs",
+    "build": "tsc && cp src/cli.cjs dist/cli.cjs",
+    "start": "node dist/cli.cjs",
     "prepare": "npm run build"
   },
   "dependencies": {
@@ -16,7 +17,7 @@
     "pngjs": "^7.0.0"
   },
   "bin": {
-    "open-vtop": "dist/index.js"
+    "open-vtop": "dist/cli.cjs"
   },
   "files": [
     "dist"

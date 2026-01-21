@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";

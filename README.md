@@ -10,8 +10,7 @@ An open-source VTOP client with automatic session management.
 5) cgpa
 6) course-page
 7) callendar
-8) many more...
-9) qol like automatic browser open, better logging, save usn password for faster logins, logout
+9) qol like automatic browser open, better logging
 
 ## Getting Started
 
@@ -24,7 +23,7 @@ bun i
 ### Development
 
 ```bash
-bun run dev
+bun start 
 ```
 
 Then open http://localhost:6767
