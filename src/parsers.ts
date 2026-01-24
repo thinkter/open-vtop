@@ -1,5 +1,9 @@
 //full slop; can't be bothered writing ts
-import type { Assignment, CourseDetail } from "./session-manager.js";
+import type {
+  Assignment,
+  CourseDetail,
+  ExamSchedule,
+} from "./session-manager.js";
 
 /**
  * Extracts CSRF token from HTML
@@ -188,4 +192,57 @@ export function parseCourseDetailsHtml(html: string): CourseDetail[] {
   }
 
   return courses;
+}
+
+/**
+ * Parses exam schedule from HTML response
+ */
+export function parseExamScheduleHtml(html: string): ExamSchedule[] {
+  const exams: ExamSchedule[] = [];
+
+  // Find the table content rows
+  const rowRegex = /<tr[^>]*class="tableContent"[^>]*>([\s\S]*?)<\/tr>/g;
+  const matches = [...html.matchAll(rowRegex)];
+
+  for (const match of matches) {
+    const rowContent = match[1];
+
+    // Skip rows that are just headers (e.g., colspan="13")
+    if (rowContent.includes('colspan="13"')) {
+      continue;
+    }
+
+    const cells: string[] = [];
+    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/g;
+    const cellMatches = [...rowContent.matchAll(cellRegex)];
+
+    for (const cellMatch of cellMatches) {
+      // Strip HTML and whitespace
+      let content = cellMatch[1].replace(/<[^>]+>/g, "").trim();
+      // Replace multiple spaces/newlines with single space
+      content = content.replace(/\s+/g, " ");
+      // Remove "-" placeholders if preferred, or keep them. keeping them is fine.
+      cells.push(content);
+    }
+
+    if (cells.length >= 13) {
+      exams.push({
+        sNo: cells[0],
+        courseCode: cells[1],
+        courseTitle: cells[2],
+        courseType: cells[3],
+        classId: cells[4],
+        slot: cells[5],
+        examDate: cells[6],
+        examSession: cells[7],
+        reportingTime: cells[8], // The HTML has separate columns but let's map them by index
+        examTime: cells[9],
+        venue: cells[10],
+        seatLocation: cells[11],
+        seatNo: cells[12],
+      });
+    }
+  }
+
+  return exams;
 }

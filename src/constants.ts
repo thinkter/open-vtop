@@ -14,6 +14,7 @@ export const CONTENT = `${BASE}/vtop/content`;
 export const ACADEMICS_CHECK = `${BASE}/vtop/academics/common/AcademicsDefaultCheck`;
 export const UPCOMING_ASSIGNMENTS = `${BASE}/vtop/get/upcoming/digital/assignments`;
 export const COURSE_DETAILS = `${BASE}/vtop/get/dashboard/current/semester/course/details`;
+export const EXAM_SCHEDULE = `${BASE}/vtop/examinations/doSearchExamScheduleForStudent`;
 
 // HTTP Headers
 

@@ -11,6 +11,7 @@ import { CoursesList } from "./components/CoursesList.js";
 import { AssignmentsList } from "./components/AssignmentsList.js";
 import { EmptyState } from "./components/EmptyState.js";
 import { SessionExpired } from "./components/SessionExpired.js";
+import { ExamsList } from "./components/ExamsList.js";
 
 const app = new Hono();
 const require = createRequire(import.meta.url);
@@ -154,6 +155,30 @@ app.get("/api/assignments/html", async (c) => {
   } catch (error) {
     return c.html(
       <ErrorMessage message={`Failed to load assignments: ${String(error)}`} />,
+    );
+  }
+});
+
+app.get("/api/exams/html", async (c) => {
+  if (!sessionManager.isLoggedIn()) {
+    return c.html(<SessionExpired />);
+  }
+
+  try {
+    const exams = await sessionManager.fetchExamSchedule();
+
+    if (exams.length === 0) {
+      return c.html(
+        <EmptyState message="No exam schedule found for this semester." />,
+      );
+    }
+
+    return c.html(<ExamsList exams={exams} />);
+  } catch (error) {
+    return c.html(
+      <ErrorMessage
+        message={`Failed to load exam schedule: ${String(error)}`}
+      />,
     );
   }
 });

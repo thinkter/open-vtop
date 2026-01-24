@@ -29,6 +29,7 @@ import {
   ACADEMICS_CHECK_HEADERS,
   LOGOUT_URL,
   LOGOUT_HEADERS,
+  EXAM_SCHEDULE,
 } from "./constants.js";
 import {
   extractCsrf,
@@ -36,6 +37,7 @@ import {
   detectCaptcha,
   parseAssignmentsHtml,
   parseCourseDetailsHtml,
+  parseExamScheduleHtml,
   type CaptchaDetectionResult,
 } from "./parsers.js";
 
@@ -55,6 +57,22 @@ export interface CourseDetail {
   attendance: string;
   attendanceColor: string;
   remarks: string;
+}
+
+export interface ExamSchedule {
+  sNo: string;
+  courseCode: string;
+  courseTitle: string;
+  courseType: string;
+  classId: string;
+  slot: string;
+  examDate: string;
+  examSession: string;
+  reportingTime: string;
+  examTime: string;
+  venue: string;
+  seatLocation: string;
+  seatNo: string;
 }
 
 interface SessionState {
@@ -547,6 +565,49 @@ class VTOPSessionManager {
       console.error(" Failed to fetch assignments:", e);
     }
 
+    return [];
+  }
+
+  async fetchExamSchedule(): Promise<ExamSchedule[]> {
+    if (!this.state.loggedIn || !this.state.regNo) {
+      console.error("Cannot fetch exam schedule: not logged in or no regNo");
+      return [];
+    }
+
+    const cookies = this.getCookieHeader();
+    const now = new Date(); // Although payload doesn't seem to use 'x' timestamp, we'll keep it consistent if needed or omit.
+    // Based on user image, payload is: authorizedID, _csrf, semesterSubId.
+
+    const apiHeaders = {
+      ...API_REQUEST_HEADERS,
+      Cookie: cookies,
+    };
+
+    const params = new URLSearchParams();
+    params.set("authorizedID", this.state.regNo);
+    if (this.state.csrf) params.set("_csrf", this.state.csrf);
+    params.set("semesterSubId", "VL20252605"); // Hardcoded as requested
+
+    try {
+      console.log("Fetching exam schedule...");
+      const res = await fetch(EXAM_SCHEDULE, {
+        method: "POST",
+        headers: apiHeaders,
+        body: params.toString(),
+      });
+
+      console.log(` -> Exam schedule status: ${res.status}`);
+      const html = await res.text();
+      // console.log(` -> Exam schedule response length: ${html.length}`);
+
+      if (html) {
+        const schedule = parseExamScheduleHtml(html);
+        console.log(` Parsed ${schedule.length} exam entries`);
+        return schedule;
+      }
+    } catch (e) {
+      console.error("Failed to fetch exam schedule:", e);
+    }
     return [];
   }
 

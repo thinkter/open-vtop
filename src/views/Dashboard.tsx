@@ -27,10 +27,10 @@ export const Dashboard: FC<{
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Course Details Section */}
+        {/* Attendance*/}
         <section class="lg:col-span-8 xl:col-span-9 space-y-4">
           <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold">Course Details</h2>
+            <h2 class="text-lg font-semibold">Attendance</h2>
             <span class="text-[0.65rem] text-muted bg-surface border border-border px-2 py-1 rounded">
               Winter Semester 2025-26
             </span>
@@ -117,6 +117,35 @@ export const Dashboard: FC<{
               </div>
             </div>
           )}
+        </section>
+
+        {/* Exam Schedule Section */}
+        <section class="lg:col-span-12 space-y-4 pt-4 border-t border-border/50">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold">Exam Schedule</h2>
+            <span class="text-[0.65rem] text-muted bg-surface border border-border px-2 py-1 rounded">
+              Winter Semester 2025-26
+            </span>
+          </div>
+
+          <div
+            id="exams-loader"
+            hx-get="/api/exams/html"
+            hx-trigger={
+              courses ? "load" : "htmx:afterOnLoad from:#courses-loader"
+            }
+            hx-swap="innerHTML"
+            class="w-full"
+          >
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  class="h-40 bg-surface/50 border border-border rounded-lg"
+                ></div>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* Assignments Section */}
