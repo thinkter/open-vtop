@@ -30,3 +30,4 @@ captcha.jpg
 review.md
 
 dist/
+.credentials.json

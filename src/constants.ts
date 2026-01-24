@@ -97,3 +97,22 @@ export const ACADEMICS_CHECK_HEADERS = {
   Referer: CONTENT,
   "User-Agent": USER_AGENT_CHROME_139,
 } as const;
+
+export const LOGOUT_URL = `${BASE}/vtop/logout`;
+
+export const LOGOUT_HEADERS = {
+  Accept: ACCEPT_HTML_EXTENDED,
+  "Accept-Encoding": ACCEPT_ENCODING_ZSTD,
+  "Accept-Language": ACCEPT_LANGUAGE,
+  "Cache-Control": "no-cache",
+  "Content-Type": "application/x-www-form-urlencoded",
+  Origin: BASE,
+  Pragma: "no-cache",
+  Priority: "u=0, i",
+  Referer: CONTENT,
+  "Sec-Fetch-Dest": "document",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Site": "same-origin",
+  "Sec-Fetch-User": "?1",
+  "Upgrade-Insecure-Requests": "1",
+} as const;

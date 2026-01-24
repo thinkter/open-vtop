@@ -71,6 +71,11 @@ app.post("/api/login/form", async (c) => {
   }
 });
 
+app.post("/api/logout", async (c) => {
+  await sessionManager.logout();
+  return c.redirect("/login");
+});
+
 app.get("/api/login/events", async (c) => {
   return streamSSE(c, async (stream) => {
     console.log("SSE connected");

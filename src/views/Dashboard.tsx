@@ -14,7 +14,16 @@ export const Dashboard: FC<{
           <h1 class="text-xl font-bold tracking-tight">Dashboard</h1>
           <p class="text-muted text-xs">Welcome back, {username}</p>
         </div>
-        <div>{/* Todo: Logout logic */}</div>
+        <div>
+          <form action="/api/logout" method="post">
+            <button
+              type="submit"
+              class="text-xs text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer"
+            >
+              Logout
+            </button>
+          </form>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

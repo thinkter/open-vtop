@@ -6,6 +6,7 @@ import {
   saveCaptchaImage,
 } from "./captcha-solver.js";
 import * as path from "path";
+import * as fs from "fs/promises";
 import { EventEmitter } from "events";
 import {
   BASE,
@@ -26,6 +27,8 @@ import {
   POST_LOGIN_HEADERS,
   API_REQUEST_HEADERS,
   ACADEMICS_CHECK_HEADERS,
+  LOGOUT_URL,
+  LOGOUT_HEADERS,
 } from "./constants.js";
 import {
   extractCsrf,
@@ -63,6 +66,8 @@ interface SessionState {
   username: string | null;
   regNo: string | null;
 }
+
+const CREDENTIALS_FILE = path.resolve(process.cwd(), ".credentials.json");
 
 class VTOPSessionManager {
   private state: SessionState = {
@@ -340,6 +345,10 @@ class VTOPSessionManager {
             console.log("Login POST submitted successfully!");
             this.state.loggedIn = true;
             this.state.username = username;
+
+            // Save credentials on successful login
+            await this.saveCredentials(username, password);
+
             this.events.emit("login-complete");
             return true;
           } catch (e) {
@@ -541,10 +550,109 @@ class VTOPSessionManager {
 
     return [];
   }
+
+  async logout(): Promise<boolean> {
+    if (!this.state.loggedIn) {
+      console.log("Already logged out or not logged in.");
+      return true;
+    }
+
+    console.log("Logging out...");
+
+    // Attempt to notify VTOP server
+    try {
+      const cookies = this.getCookieHeader();
+      const headers = {
+        ...LOGOUT_HEADERS,
+        Cookie: cookies,
+      };
+
+      const formData = new URLSearchParams();
+      if (this.state.csrf) {
+        formData.set("_csrf", this.state.csrf);
+      }
+
+      const res = await fetch(LOGOUT_URL, {
+        method: "POST",
+        headers,
+        body: formData.toString(),
+        redirect: "manual",
+      });
+
+      console.log(` -> Logout POST status: ${res.status}`);
+      if (res.status === 302 || res.status === 200) {
+        console.log("Server session cleared effectively.");
+      }
+    } catch (e) {
+      console.warn(
+        "Logout request failed (network error?), clearing local session anyway.",
+        e,
+      );
+    }
+
+    // Clear local session
+    this.state.cookies.clear();
+    this.state.csrf = null;
+    this.state.initialized = false;
+    this.state.loggedIn = false;
+    this.state.username = null;
+    this.state.regNo = null;
+
+    this.events.emit("logout");
+    console.log("Local session cleared.");
+    return true;
+  }
+
+  private async saveCredentials(username: string, password: string) {
+    try {
+      await fs.writeFile(
+        CREDENTIALS_FILE,
+        JSON.stringify({ username, password }),
+      );
+      console.log("Credentials saved locally.");
+    } catch (e) {
+      console.error("Failed to save credentials:", e);
+    }
+  }
+
+  private async loadCredentials(): Promise<{
+    username: string;
+    password: string;
+  } | null> {
+    try {
+      const data = await fs.readFile(CREDENTIALS_FILE, "utf-8");
+      return JSON.parse(data);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async tryAutoLogin() {
+    const creds = await this.loadCredentials();
+    if (creds) {
+      console.log(`Found saved credentials for user: ${creds.username}`);
+      console.log("Attemping auto-login...");
+      const success = await this.login(creds.username, creds.password);
+      if (success) {
+        console.log("Auto-login successful!");
+        await this.navigatePostLogin();
+        await this.performAcademicsCheck();
+      } else {
+        console.log("Auto-login failed.");
+      }
+    } else {
+      console.log("No saved credentials found.");
+    }
+  }
 }
 
 export const sessionManager = new VTOPSessionManager();
 
-sessionManager.initialize().catch((error) => {
-  console.error("Failed to auto-initialize session:", error);
-});
+sessionManager
+  .initialize()
+  .then(() => {
+    return sessionManager.tryAutoLogin();
+  })
+  .catch((error) => {
+    console.error("Failed to auto-initialize session:", error);
+  });
