@@ -9,14 +9,15 @@ npx open-vtop logs
 bunx open-vtop logs
 ```
 ## Todo
-1) save usn and password for future use
-2) grab regno from the responses it self
-3) attendance
-4) timetable
-5) cgpa
-6) course-page
-7) callendar
-9) qol like automatic browser open, better logging
+- [x] Save USN and password for future use
+- [x] Grab regno from the responses itself
+- [x] Attendance
+- [ ] Timetable
+- [ ] CGPA (unsure if people actually want to see their marks and grades on this)
+- [ ] Course page
+- [ ] Calendar
+- [x] QoL: automatic browser open, better logging
+- [x] Upcoming exams
 
 ## Getting Started
 
