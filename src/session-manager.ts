@@ -346,7 +346,6 @@ class VTOPSessionManager {
             this.state.loggedIn = true;
             this.state.username = username;
 
-            // Save credentials on successful login
             await this.saveCredentials(username, password);
 
             this.events.emit("login-complete");
@@ -647,12 +646,3 @@ class VTOPSessionManager {
 }
 
 export const sessionManager = new VTOPSessionManager();
-
-sessionManager
-  .initialize()
-  .then(() => {
-    return sessionManager.tryAutoLogin();
-  })
-  .catch((error) => {
-    console.error("Failed to auto-initialize session:", error);
-  });

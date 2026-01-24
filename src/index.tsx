@@ -158,12 +158,23 @@ app.get("/api/assignments/html", async (c) => {
   }
 });
 
-serve(
-  {
-    fetch: app.fetch,
-    port: 6767,
-  },
-  (info) => {
-    console.log(`Server is running on http://localhost:${info.port}`);
-  },
-);
+const main = async () => {
+  try {
+    await sessionManager.initialize();
+    await sessionManager.tryAutoLogin();
+  } catch (e) {
+    console.error("Initialization failed:", e);
+  }
+
+  serve(
+    {
+      fetch: app.fetch,
+      port: 6767,
+    },
+    (info) => {
+      console.log(`Server is running on http://localhost:${info.port}`);
+    },
+  );
+};
+
+main();
