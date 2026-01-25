@@ -246,3 +246,66 @@ export function parseExamScheduleHtml(html: string): ExamSchedule[] {
 
   return exams;
 }
+
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, " ").replace(/\u00a0/g, " ").trim();
+}
+
+function stripTags(value: string): string {
+  return value.replace(/<[^>]+>/g, " ");
+}
+
+export interface CourseMaterialRowParsed {
+  index: string;
+  courseDetail: string;
+  materialDetail: string;
+  uploadedBy: string;
+  fileId?: string;
+}
+
+export interface CourseMaterialTableParsed {
+  headers: string[];
+  rows: CourseMaterialRowParsed[];
+}
+
+export function parseCourseMaterialTable(
+  html: string,
+): CourseMaterialTableParsed | null {
+  const tableMatch = html.match(
+    /<table[^>]*id=["']materialTable["'][\s\S]*?<\/table>/i,
+  );
+  if (!tableMatch) return null;
+
+  const tableHtml = tableMatch[0];
+  const headerMatches = [
+    ...tableHtml.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi),
+  ];
+  const headers = headerMatches.map((m) =>
+    normalizeText(stripTags(m[1] || "")),
+  );
+
+  const bodyMatch = tableHtml.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
+  if (!bodyMatch) {
+    return { headers, rows: [] };
+  }
+
+  const rowMatches = [...bodyMatch[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)];
+  const rows: CourseMaterialRowParsed[] = [];
+
+  for (const rowMatch of rowMatches) {
+    const cells = [...rowMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)];
+    if (cells.length < 4) continue;
+    const cellValues = cells.map((cell) => normalizeText(stripTags(cell[1])));
+    const fileIdMatch = rowMatch[1].match(/data-fileid=["']([^"']+)["']/i);
+
+    rows.push({
+      index: cellValues[0] || "",
+      courseDetail: cellValues[1] || "",
+      materialDetail: cellValues[2] || "",
+      uploadedBy: cellValues[3] || "",
+      fileId: fileIdMatch?.[1],
+    });
+  }
+
+  return { headers, rows };
+}

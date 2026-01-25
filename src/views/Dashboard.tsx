@@ -16,7 +16,13 @@ export const Dashboard: FC<{
           <h1 class="text-xl font-bold tracking-tight">Dashboard</h1>
           <p class="text-muted text-xs">Welcome back, {username}</p>
         </div>
-        <div>
+        <div class="flex items-center gap-4">
+          <a
+            href="/coursepage"
+            class="text-xs text-muted hover:text-foreground transition-colors"
+          >
+            Course Page
+          </a>
           <form action="/api/logout" method="post">
             <button
               type="submit"

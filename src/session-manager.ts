@@ -22,6 +22,7 @@ import {
   ACADEMICS_CHECK,
   UPCOMING_ASSIGNMENTS,
   COURSE_DETAILS,
+  COURSE_MATERIAL_DETAIL,
   BROWSER_HEADERS,
   LOGIN_POST_HEADERS,
   POST_LOGIN_HEADERS,
@@ -38,6 +39,7 @@ import {
   parseAssignmentsHtml,
   parseCourseDetailsHtml,
   parseExamScheduleHtml,
+  parseCourseMaterialTable,
   type CaptchaDetectionResult,
 } from "./parsers.js";
 
@@ -73,6 +75,27 @@ export interface ExamSchedule {
   venue: string;
   seatLocation: string;
   seatNo: string;
+}
+
+export interface CourseOption {
+  value: string;
+  name: string;
+  type: string;
+  semester: string;
+  semesterName?: string;
+}
+
+export interface CourseMaterialRow {
+  index: string;
+  courseDetail: string;
+  materialDetail: string;
+  uploadedBy: string;
+  fileId?: string;
+}
+
+export interface CourseMaterialTable {
+  headers: string[];
+  rows: CourseMaterialRow[];
 }
 
 interface SessionState {
@@ -609,6 +632,53 @@ class VTOPSessionManager {
       console.error("Failed to fetch exam schedule:", e);
     }
     return [];
+  }
+
+  async fetchCourseMaterials(
+    semester: string,
+    courseId: string,
+    courseType: string,
+  ): Promise<CourseMaterialTable | null> {
+    if (!this.state.loggedIn || !this.state.regNo) {
+      console.error("Cannot fetch course materials: not logged in");
+      return null;
+    }
+
+    const cookies = this.getCookieHeader();
+    const apiHeaders = {
+      ...API_REQUEST_HEADERS,
+      Cookie: cookies,
+      Referer: CONTENT,
+    };
+
+    const params = new URLSearchParams();
+    params.set("authorizedID", this.state.regNo);
+    if (this.state.csrf) params.set("_csrf", this.state.csrf);
+    params.set("semester", semester);
+    params.set("CourseId", courseId);
+    params.set("CoursType", courseType);
+    params.set("x", new Date().toUTCString());
+
+    try {
+      console.log("Fetching course material details...");
+      const res = await fetch(COURSE_MATERIAL_DETAIL, {
+        method: "POST",
+        headers: apiHeaders,
+        body: params.toString(),
+      });
+
+      const html = await res.text();
+      const parsed = parseCourseMaterialTable(html);
+      if (!parsed) {
+        console.warn("Course material table not found in response.");
+        return null;
+      }
+
+      return parsed;
+    } catch (e) {
+      console.error("Failed to fetch course materials:", e);
+      return null;
+    }
   }
 
   async logout(): Promise<boolean> {

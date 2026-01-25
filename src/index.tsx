@@ -12,6 +12,8 @@ import { AssignmentsList } from "./components/AssignmentsList.js";
 import { EmptyState } from "./components/EmptyState.js";
 import { SessionExpired } from "./components/SessionExpired.js";
 import { ExamsList } from "./components/ExamsList.js";
+import { CoursePage } from "./views/CoursePage.js";
+import { MaterialsList } from "./components/MaterialsList.js";
 
 const app = new Hono();
 const require = createRequire(import.meta.url);
@@ -33,6 +35,31 @@ app.get("/login", (c) => {
     return c.redirect("/");
   }
   return c.html(<Login />);
+});
+
+app.get("/coursepage", async (c) => {
+  if (!sessionManager.isLoggedIn()) {
+    return c.redirect("/login");
+  }
+
+  try {
+    const courses = await sessionManager.fetchCourseDetails();
+    const options = courses.map((course) => ({
+      value: course.code,
+      name: course.name,
+      type: course.type,
+      semester: "current",
+      semesterName: "Current Semester",
+    }));
+
+    return c.html(
+      <CoursePage username={sessionManager.getUsername()!} options={options} />,
+    );
+  } catch (error) {
+    return c.html(
+      <ErrorMessage message={`Failed to load course page: ${String(error)}`} />,
+    );
+  }
 });
 
 app.post("/api/login/form", async (c) => {
@@ -75,6 +102,41 @@ app.post("/api/login/form", async (c) => {
 app.post("/api/logout", async (c) => {
   await sessionManager.logout();
   return c.redirect("/login");
+});
+
+app.post("/api/course/material", async (c) => {
+  if (!sessionManager.isLoggedIn()) {
+    return c.html(<SessionExpired />);
+  }
+
+  try {
+    const formData = await c.req.parseBody();
+    const semester = String(formData["semester"] || "");
+    const courseId = String(formData["courseId"] || "");
+    const courseType = String(formData["courseType"] || "");
+
+    if (!semester || !courseId || !courseType) {
+      return c.html(
+        <ErrorMessage message="Missing course material selection." />,
+      );
+    }
+
+    const materials = await sessionManager.fetchCourseMaterials(
+      semester,
+      courseId,
+      courseType,
+    );
+
+    if (!materials) {
+      return c.html(<EmptyState message="No course materials found." />);
+    }
+
+    return c.html(<MaterialsList materials={materials} />);
+  } catch (error) {
+    return c.html(
+      <ErrorMessage message={`Failed to load materials: ${String(error)}`} />,
+    );
+  }
 });
 
 app.get("/api/login/events", async (c) => {
