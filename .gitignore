@@ -31,3 +31,4 @@ review.md
 
 dist/
 .credentials.json
+login_times.txt

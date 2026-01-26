@@ -250,145 +250,205 @@ class VTOPSessionManager {
   async login(
     username: string,
     password: string,
-    maxAttempts: number = 10,
+    maxAttempts: number = 30, // Increased default for parallel attempts total buffer
+    concurrency: number = 3,
   ): Promise<boolean> {
+    const startTime = Date.now();
     if (!this.state.initialized) {
       console.log("Session not initialized, initializing first...");
       await this.initialize();
     }
 
-    console.log("Starting VTOP login process...");
-    console.log("Polling /vtop/login until text CAPTCHA appears...");
+    console.log(`Starting parallel VTOP login (concurrency=${concurrency})...`);
+    this.events.emit(
+      "log",
+      `Starting parallel login with ${concurrency} workers...`,
+    );
 
-    let attempt = 0;
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+    let winnerDetected = false;
+    let loginSuccess = false;
 
-    while (attempt < maxAttempts) {
-      attempt++;
+    // We'll trust the first worker that finds a text captcha to handle the login.
+    // If it fails the POST, we fail the whole batch for simplicity,
+    // or we could retry, but let's stick to "first valid captcha wins" for now.
+
+    const pollWorker = async (workerId: number) => {
+      let attempts = 0;
+      const logPrefix = `[Worker ${workerId}]`;
 
       try {
-        const res = await this.fetchWithCookies(LOGIN_PAGE);
-        const body = await res.text();
-
-        const { isTextCaptcha, isRecaptcha, csrf, imgDataUri } =
-          detectCaptcha(body);
-
-        const curJsession = this.state.cookies.get("JSESSIONID") || "(?)";
-        const curServerID = this.state.cookies.get("SERVERID") || "(?)";
-
-        // const logMsg = `Attempt ${attempt}: status ${res.status}\ntext-captcha=${isTextCaptcha ? "YES" : "no"} | recaptcha=${isRecaptcha ? "YES" : "no"} | JSESSIONID=${curJsession}`;
-        const logMsg = `Attempt ${attempt} text-captcha=${isTextCaptcha ? "YES" : "no"} recaptcha=${isRecaptcha ? "YES" : "no"} `;
-        console.log(logMsg);
-        this.events.emit("log", logMsg);
-
-        if (isTextCaptcha) {
-          let solvedCaptcha = "";
-
-          if (imgDataUri) {
-            const parts = extractDataUriParts(imgDataUri);
-            try {
-              const cleanDataUri = imgDataUri.trim();
-              if (cleanDataUri !== imgDataUri) {
-                console.log("Trimmed whitespace from captcha data URI");
-              }
-
-              solvedCaptcha = await solve(cleanDataUri);
-              console.log("Solved CAPTCHA:", solvedCaptcha);
-
-              if (parts?.base64) {
-                const out = path.resolve(process.cwd(), "captcha.jpg");
-                await saveCaptchaImage(parts.base64, out);
-              }
-            } catch (e) {
-              console.warn("Failed to solve captcha:", e);
-              solvedCaptcha = "";
-
-              try {
-                const fs = await import("fs/promises");
-                const failPath = path.resolve(
-                  process.cwd(),
-                  "failed_captcha_data.txt",
-                );
-                await fs.writeFile(failPath, imgDataUri);
-                console.log(`Saved failed captcha data URI to ${failPath}`);
-              } catch (writeErr) {
-                console.error("Failed to save failed captcha data:", writeErr);
-              }
-            }
-          } else {
-            console.log("Text CAPTCHA detected but no data URI image found.");
+        while (!signal.aborted && !winnerDetected) {
+          attempts++;
+          if (attempts > maxAttempts) {
+            console.log(`${logPrefix} Max attempts reached.`);
+            return;
           }
-
-          console.log("\nSubmitting POST /vtop/login ...");
-
-          const loginForm = new URLSearchParams();
-          if (csrf) loginForm.set("_csrf", csrf);
-          loginForm.set("username", username);
-          loginForm.set("password", password);
-          loginForm.set("captchaStr", solvedCaptcha);
-
-          const _cookies = `JSESSIONID=${curJsession}; SERVERID=${curServerID}`;
-
-          const postHeaders = {
-            ...LOGIN_POST_HEADERS,
-            Cookie: _cookies,
-          };
 
           try {
-            const postRes = await fetch(LOGIN_PAGE, {
-              method: "POST",
-              headers: postHeaders,
-              body: loginForm.toString(),
-              redirect: "manual",
-            });
+            // Check signal before fetch
+            if (signal.aborted) break;
 
-            console.log(` -> Login POST status: ${postRes.status}`);
+            // console.log(`${logPrefix} Fetching login page...`); // verbose
+            const res = await this.fetchWithCookies(LOGIN_PAGE, {
+              signal,
+            } as RequestInit);
 
-            this.storeCookies(postRes);
+            // Check signal after fetch (in case it aborted during fetch)
+            if (signal.aborted) break;
 
-            const setCookie = postRes.headers.getSetCookie?.() || [];
-            if (setCookie.length > 0) {
-              console.log(" -> New cookies received");
+            const body = await res.text();
+
+            // Re-check detection
+            if (winnerDetected || signal.aborted) break;
+
+            const { isTextCaptcha, isRecaptcha, csrf, imgDataUri } =
+              detectCaptcha(body);
+
+            this.events.emit(
+              "log",
+              `${logPrefix} text=${isTextCaptcha} recap=${isRecaptcha}`,
+            );
+
+            if (isTextCaptcha && !winnerDetected) {
+              // ATOMIC CLAIM
+              if (winnerDetected) break; // Double check
+              winnerDetected = true;
+
+              console.log(`${logPrefix} !!! WINNER detected Text CAPTCHA !!!`);
+              this.events.emit(
+                "log",
+                `${logPrefix} WINNER! Claiming login task.`,
+              );
+
+              // Cancel other workers immediately
+              abortController.abort();
+
+              // Proceed with solving and login
+              const curJsession = this.state.cookies.get("JSESSIONID") || "(?)";
+              const curServerID = this.state.cookies.get("SERVERID") || "(?)";
+
+              let solvedCaptcha = "";
+              if (imgDataUri) {
+                const cleanDataUri = imgDataUri.trim();
+                try {
+                  solvedCaptcha = await solve(cleanDataUri);
+                  console.log(`${logPrefix} Solved: ${solvedCaptcha}`);
+                  this.events.emit(
+                    "log",
+                    `${logPrefix} Solved CAPTCHA: ${solvedCaptcha}`,
+                  );
+                } catch (e) {
+                  console.error(`${logPrefix} Solve failed:`, e);
+                  this.events.emit("log", `${logPrefix} Solve failed.`);
+                }
+              }
+
+              console.log(`${logPrefix} Submitting Login POST...`);
+              this.events.emit("log", `${logPrefix} Submitting credentials...`);
+
+              const loginForm = new URLSearchParams();
+              if (csrf) loginForm.set("_csrf", csrf);
+              loginForm.set("username", username);
+              loginForm.set("password", password);
+              loginForm.set("captchaStr", solvedCaptcha);
+
+              const _cookies = `JSESSIONID=${curJsession}; SERVERID=${curServerID}`;
+              const postHeaders = {
+                ...LOGIN_POST_HEADERS,
+                Cookie: _cookies,
+              };
+
+              const postRes = await fetch(LOGIN_PAGE, {
+                method: "POST",
+                headers: postHeaders,
+                body: loginForm.toString(),
+                redirect: "manual",
+              });
+
+              this.storeCookies(postRes);
+
+              // Follow redirect if existing
+              const location = postRes.headers.get("Location");
+              if (location) {
+                const redirectUrl = location.startsWith("http")
+                  ? location
+                  : new URL(location, LOGIN_PAGE).toString();
+                await this.fetchWithCookies(redirectUrl);
+              }
+
+              this.state.loggedIn = true;
+              this.state.username = username;
+
+              // Save credentials asynchronously
+              this.saveCredentials(username, password).catch((err) =>
+                console.error("Save creds failed", err),
+              );
+
+              const duration = (Date.now() - startTime) / 1000;
+              console.log(`${logPrefix} Login success in ${duration}s`);
+              this.events.emit(
+                "log",
+                `${logPrefix} Login SUCCESS in ${duration}s`,
+              );
+
+              const logEntry = `[${new Date().toISOString()}] Login took ${duration} seconds (Workers: ${concurrency})\n`;
+              try {
+                await fs.appendFile("login_times.txt", logEntry);
+                console.log(`${logPrefix} Login time recorded to file.`);
+              } catch (err) {
+                console.error(`${logPrefix} Failed to write login time:`, err);
+              }
+
+              loginSuccess = true;
+              return;
+            } else {
+              // Not text captcha, retry
+              if (isRecaptcha) {
+                this.events.emit(
+                  "log",
+                  `${logPrefix} Saw reCAPTCHA, skipping...`,
+                );
+              }
+              // Random delay/jitter to desynchronize workers
+              const delay = 500 + Math.random() * 500;
+              await new Promise((r) => setTimeout(r, delay));
             }
-
-            const location = postRes.headers.get("Location");
-            if (location) {
-              console.log(` -> Redirect to: ${location}`);
-
-              const redirectUrl = location.startsWith("http")
-                ? location
-                : new URL(location, LOGIN_PAGE).toString();
-              await this.fetchWithCookies(redirectUrl);
+          } catch (e: any) {
+            if (e.name === "AbortError") {
+              // Ignore aborts
+              break;
             }
-
-            console.log("Login POST submitted successfully!");
-            this.state.loggedIn = true;
-            this.state.username = username;
-
-            await this.saveCredentials(username, password);
-
-            this.events.emit("login-complete");
-            return true;
-          } catch (e) {
-            console.error("Login POST failed:", e);
+            console.error(`${logPrefix} error:`, e);
+            this.events.emit("log", `${logPrefix} error: ${e.message}`);
+            // Short delay on error
+            await new Promise((r) => setTimeout(r, 1000));
           }
         }
-
-        if (isRecaptcha) {
-          console.log("reCAPTCHA detected - cannot solve automatically");
-          await new Promise((r) => setTimeout(r, 2000));
-          continue;
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          console.error(`${logPrefix} unexpected fatal error:`, err);
         }
-
-        await new Promise((r) => setTimeout(r, 500));
-      } catch (e) {
-        console.error(`Attempt ${attempt} failed:`, e);
-        await new Promise((r) => setTimeout(r, 1000));
       }
+    };
+
+    const workers = [];
+    for (let i = 1; i <= concurrency; i++) {
+      workers.push(pollWorker(i));
     }
 
-    console.log(`Login failed after ${maxAttempts} attempts`);
-    this.events.emit("login-complete");
-    return false;
+    await Promise.all(workers);
+
+    if (loginSuccess) {
+      this.events.emit("login-complete");
+      return true;
+    } else {
+      console.log("All workers finished without success.");
+      this.events.emit("log", "All workers failed/exhausted.");
+      this.events.emit("login-complete");
+      return false;
+    }
   }
 
   isLoggedIn(): boolean {
